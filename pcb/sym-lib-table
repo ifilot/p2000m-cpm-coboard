@@ -1,0 +1,10 @@
+(sym_lib_table
+	(version 7)
+	(lib
+		(name "p2000m_components")
+		(type "KiCad")
+		(uri "${KIPRJMOD}/components/p2000m_components.kicad_sym")
+		(options "")
+		(descr "Project-local symbols for the P2000M CP/M co-board")
+	)
+)
