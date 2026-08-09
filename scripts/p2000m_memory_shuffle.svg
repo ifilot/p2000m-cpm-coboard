@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1040" viewBox="0 0 1600 1040">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#091426"/><stop offset="1" stop-color="#132c46"/></linearGradient>
+<filter id="shadow"><feDropShadow dx="0" dy="5" stdDeviation="7" flood-opacity=".28"/></filter>
+<marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7dd3fc"/></marker>
+</defs>
+<rect width="1600" height="1040" fill="url(#bg)"/>
+<text x="70" y="70" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="34" font-weight="700" fill="#f8fafc" text-anchor="start">P2000 CP/M address decode &amp; memory shuffle</text>
+<text x="70" y="104" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="17" font-weight="400" fill="#9fb5c9" text-anchor="start">Derived from MW106 pages 3 and 16 · modern KiCad schematic review</text>
+<rect x="55" y="135" width="700" height="210" rx="16" fill="#10253b" stroke="#284866"/>
+<text x="85" y="175" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="21" font-weight="700" fill="#bae6fd" text-anchor="start">1  Address EPROM lookup</text>
+<rect x="90" y="205" width="72" height="42" rx="7" fill="#1e3a56" stroke="none"/>
+<text x="126" y="233" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#f8fafc" text-anchor="middle">A15</text>
+<line x1="126" y1="250" x2="126" y2="275" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="90" y="280" width="72" height="42" rx="7" fill="#164e63" stroke="none"/>
+<text x="126" y="308" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#a5f3fc" text-anchor="middle">A4</text>
+<rect x="208" y="205" width="72" height="42" rx="7" fill="#1e3a56" stroke="none"/>
+<text x="244" y="233" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#f8fafc" text-anchor="middle">A14</text>
+<line x1="244" y1="250" x2="244" y2="275" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="208" y="280" width="72" height="42" rx="7" fill="#164e63" stroke="none"/>
+<text x="244" y="308" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#a5f3fc" text-anchor="middle">A3</text>
+<rect x="326" y="205" width="72" height="42" rx="7" fill="#1e3a56" stroke="none"/>
+<text x="362" y="233" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#f8fafc" text-anchor="middle">A13</text>
+<line x1="362" y1="250" x2="362" y2="275" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="326" y="280" width="72" height="42" rx="7" fill="#164e63" stroke="none"/>
+<text x="362" y="308" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#a5f3fc" text-anchor="middle">A2</text>
+<rect x="444" y="205" width="72" height="42" rx="7" fill="#1e3a56" stroke="none"/>
+<text x="480" y="233" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#f8fafc" text-anchor="middle">A12</text>
+<line x1="480" y1="250" x2="480" y2="275" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="444" y="280" width="72" height="42" rx="7" fill="#164e63" stroke="none"/>
+<text x="480" y="308" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#a5f3fc" text-anchor="middle">A1</text>
+<rect x="562" y="205" width="72" height="42" rx="7" fill="#1e3a56" stroke="none"/>
+<text x="598" y="233" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#f8fafc" text-anchor="middle">A11</text>
+<line x1="598" y1="250" x2="598" y2="275" stroke="#7dd3fc" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="562" y="280" width="72" height="42" rx="7" fill="#164e63" stroke="none"/>
+<text x="598" y="308" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#a5f3fc" text-anchor="middle">A0</text>
+<text x="690" y="230" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="28" font-weight="700" fill="#94a3b8" text-anchor="middle">+</text>
+<text x="690" y="286" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#fef3c7" text-anchor="middle">A5</text>
+<text x="690" y="312" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="600" fill="#fbbf24" text-anchor="middle">T/M</text>
+<text x="85" y="335" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="400" fill="#9fb5c9" text-anchor="start">Direct binary order: one EEPROM byte per 2 KiB CPU window</text>
+<rect x="785" y="135" width="760" height="650" rx="16" fill="#10253b" stroke="#284866"/>
+<text x="815" y="175" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="21" font-weight="700" fill="#bae6fd" text-anchor="start">2  U6 expansion-board shuffle in CP/M mode</text>
+<text x="815" y="202" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="400" fill="#9fb5c9" text-anchor="start">RA15..RA12 = (A15..A12 + 6) mod 16</text>
+<rect x="840" y="228" width="128" height="25" rx="4" fill="#164e63" stroke="none"/>
+<text x="904" y="246" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">0000–0FFF</text>
+<path d="M 968 240 C 1015 240, 1322 426, 1370 426" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="414" width="128" height="25" rx="4" fill="#164e63" stroke="none"/>
+<text x="1434" y="432" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">6000–6FFF</text>
+<rect x="840" y="259" width="128" height="25" rx="4" fill="#164e63" stroke="none"/>
+<text x="904" y="277" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">1000–1FFF</text>
+<path d="M 968 271 C 1015 271, 1322 457, 1370 457" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="445" width="128" height="25" rx="4" fill="#164e63" stroke="none"/>
+<text x="1434" y="463" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">7000–7FFF</text>
+<rect x="840" y="290" width="128" height="25" rx="4" fill="#164e63" stroke="none"/>
+<text x="904" y="308" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">2000–2FFF</text>
+<path d="M 968 302 C 1015 302, 1322 488, 1370 488" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="476" width="128" height="25" rx="4" fill="#164e63" stroke="none"/>
+<text x="1434" y="494" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">8000–8FFF</text>
+<rect x="840" y="321" width="128" height="25" rx="4" fill="#164e63" stroke="none"/>
+<text x="904" y="339" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">3000–3FFF</text>
+<path d="M 968 333 C 1015 333, 1322 519, 1370 519" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="507" width="128" height="25" rx="4" fill="#164e63" stroke="none"/>
+<text x="1434" y="525" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">9000–9FFF</text>
+<rect x="840" y="352" width="128" height="25" rx="4" fill="#155e75" stroke="none"/>
+<text x="904" y="370" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">4000–4FFF</text>
+<path d="M 968 364 C 1015 364, 1322 550, 1370 550" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="538" width="128" height="25" rx="4" fill="#155e75" stroke="none"/>
+<text x="1434" y="556" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">A000–AFFF</text>
+<rect x="840" y="383" width="128" height="25" rx="4" fill="#155e75" stroke="none"/>
+<text x="904" y="401" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">5000–5FFF</text>
+<path d="M 968 395 C 1015 395, 1322 581, 1370 581" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="569" width="128" height="25" rx="4" fill="#155e75" stroke="none"/>
+<text x="1434" y="587" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">B000–BFFF</text>
+<rect x="840" y="414" width="128" height="25" rx="4" fill="#155e75" stroke="none"/>
+<text x="904" y="432" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">6000–6FFF</text>
+<path d="M 968 426 C 1015 426, 1322 612, 1370 612" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="600" width="128" height="25" rx="4" fill="#155e75" stroke="none"/>
+<text x="1434" y="618" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">C000–CFFF</text>
+<rect x="840" y="445" width="128" height="25" rx="4" fill="#155e75" stroke="none"/>
+<text x="904" y="463" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">7000–7FFF</text>
+<path d="M 968 457 C 1015 457, 1322 643, 1370 643" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="631" width="128" height="25" rx="4" fill="#155e75" stroke="none"/>
+<text x="1434" y="649" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">D000–DFFF</text>
+<rect x="840" y="476" width="128" height="25" rx="4" fill="#0e7490" stroke="none"/>
+<text x="904" y="494" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">8000–8FFF</text>
+<path d="M 968 488 C 1015 488, 1322 674, 1370 674" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="662" width="128" height="25" rx="4" fill="#0e7490" stroke="none"/>
+<text x="1434" y="680" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">E000–EFFF</text>
+<rect x="840" y="507" width="128" height="25" rx="4" fill="#0e7490" stroke="none"/>
+<text x="904" y="525" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">9000–9FFF</text>
+<path d="M 968 519 C 1015 519, 1322 705, 1370 705" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="693" width="128" height="25" rx="4" fill="#0e7490" stroke="none"/>
+<text x="1434" y="711" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">F000–FFFF</text>
+<rect x="840" y="538" width="128" height="25" rx="4" fill="#0e7490" stroke="none"/>
+<text x="904" y="556" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">A000–AFFF</text>
+<path d="M 968 550 C 1015 550, 1322 240, 1370 240" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="228" width="128" height="25" rx="4" fill="#0e7490" stroke="none"/>
+<text x="1434" y="246" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">0000–0FFF</text>
+<rect x="840" y="569" width="128" height="25" rx="4" fill="#0e7490" stroke="none"/>
+<text x="904" y="587" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">B000–BFFF</text>
+<path d="M 968 581 C 1015 581, 1322 271, 1370 271" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="259" width="128" height="25" rx="4" fill="#0e7490" stroke="none"/>
+<text x="1434" y="277" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">1000–1FFF</text>
+<rect x="840" y="600" width="128" height="25" rx="4" fill="#0369a1" stroke="none"/>
+<text x="904" y="618" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">C000–CFFF</text>
+<path d="M 968 612 C 1015 612, 1322 302, 1370 302" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="290" width="128" height="25" rx="4" fill="#0369a1" stroke="none"/>
+<text x="1434" y="308" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">2000–2FFF</text>
+<rect x="840" y="631" width="128" height="25" rx="4" fill="#0369a1" stroke="none"/>
+<text x="904" y="649" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">D000–DFFF</text>
+<path d="M 968 643 C 1015 643, 1322 333, 1370 333" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="321" width="128" height="25" rx="4" fill="#0369a1" stroke="none"/>
+<text x="1434" y="339" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">3000–3FFF</text>
+<rect x="840" y="662" width="128" height="25" rx="4" fill="#0369a1" stroke="none"/>
+<text x="904" y="680" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">E000–EFFF</text>
+<path d="M 968 674 C 1015 674, 1322 364, 1370 364" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="352" width="128" height="25" rx="4" fill="#0369a1" stroke="none"/>
+<text x="1434" y="370" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">4000–4FFF</text>
+<rect x="840" y="693" width="128" height="25" rx="4" fill="#0369a1" stroke="none"/>
+<text x="904" y="711" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">F000–FFFF</text>
+<path d="M 968 705 C 1015 705, 1322 395, 1370 395" fill="none" stroke="#7dd3fc" stroke-width="1.5" opacity="0.48" marker-end="url(#arrow)"/>
+<rect x="1370" y="383" width="128" height="25" rx="4" fill="#0369a1" stroke="none"/>
+<text x="1434" y="401" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="600" fill="#ecfeff" text-anchor="middle">5000–5FFF</text>
+<text x="904" y="755" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#9fb5c9" text-anchor="middle">CPU address</text>
+<text x="1434" y="755" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#9fb5c9" text-anchor="middle">J2 RA address</text>
+<rect x="55" y="375" width="700" height="410" rx="16" fill="#10253b" stroke="#284866"/>
+<text x="85" y="415" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="21" font-weight="700" fill="#bae6fd" text-anchor="start">3  Manual signal map (M model)</text>
+<rect x="92" y="450" width="77.5" height="92" rx="1" fill="#0e7490" stroke="#dbeafe"/>
+<text x="130.75" y="487" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">7E</text>
+<text x="130.75" y="512" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="500" fill="#e0f2fe" text-anchor="middle">0000</text>
+<rect x="169.5" y="450" width="77.5" height="92" rx="1" fill="#0284c7" stroke="#dbeafe"/>
+<text x="208.25" y="487" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">FE</text>
+<text x="208.25" y="512" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="500" fill="#e0f2fe" text-anchor="middle">2000</text>
+<rect x="247.0" y="450" width="155.0" height="92" rx="1" fill="#16a34a" stroke="#dbeafe"/>
+<text x="324.5" y="487" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">7D</text>
+<text x="324.5" y="512" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="500" fill="#e0f2fe" text-anchor="middle">4000</text>
+<rect x="402.0" y="450" width="77.5" height="92" rx="1" fill="#7c3aed" stroke="#dbeafe"/>
+<text x="440.75" y="487" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">FD</text>
+<text x="440.75" y="512" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="500" fill="#e0f2fe" text-anchor="middle">8000</text>
+<rect x="479.5" y="450" width="155.0" height="92" rx="1" fill="#9333ea" stroke="#dbeafe"/>
+<text x="557.0" y="487" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">F9</text>
+<text x="557.0" y="512" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="500" fill="#e0f2fe" text-anchor="middle">A000</text>
+<rect x="634.5" y="450" width="38.75" height="92" rx="1" fill="#c2410c" stroke="#dbeafe"/>
+<rect x="673.25" y="450" width="38.75" height="92" rx="1" fill="#7c3aed" stroke="#dbeafe"/>
+<text x="92" y="565" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#9fb5c9" text-anchor="start">Literal asserted signals:</text>
+<text x="100" y="590" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#d8e7f4" text-anchor="start">0000–1FFF  7E  RAMS1</text>
+<text x="100" y="614" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#d8e7f4" text-anchor="start">2000–3FFF  FE  RAMS1 + RAMS2</text>
+<text x="100" y="638" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#d8e7f4" text-anchor="start">4000–7FFF  7D  co-board RAM gap · 16 KiB</text>
+<text x="100" y="662" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#d8e7f4" text-anchor="start">8000–9FFF  FD  RAMS2</text>
+<text x="100" y="686" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#d8e7f4" text-anchor="start">A000–DFFF  F9  /VIDS + RAMS2</text>
+<text x="100" y="710" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#d8e7f4" text-anchor="start">E000–EFFF  DC  /CARS1 + RAMS2</text>
+<text x="100" y="734" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#d8e7f4" text-anchor="start">F000–FFFF  FD  RAMS2</text>
+<rect x="86" y="748" width="650" height="25" rx="6" fill="#7f1d1d" stroke="none"/>
+<text x="411" y="766" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="700" fill="#fee2e2" text-anchor="middle">Current D2→/CS selects A000–DFFF and removes /VIDS; 4000–7FFF remains a gap</text>
+<rect x="55" y="815" width="1490" height="170" rx="16" fill="#111c2d" stroke="#334b63"/>
+<text x="85" y="858" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="24" font-weight="800" fill="#ef4444" text-anchor="start">NOT VERIFIED · 3 blocking findings</text>
+<text x="90" y="900" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="600" fill="#86efac" text-anchor="start">✓ D7 mode latch matches boot ROM: LD A,80h / OUT (20h),A</text>
+<text x="825" y="900" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="600" fill="#fca5a5" text-anchor="start">✗ SRAM /CS diverts D2 (/VIDS), not the 7D decode gap</text>
+<text x="90" y="938" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="600" fill="#fca5a5" text-anchor="start">✗ SRAM /CS lacks /MREQ; matching I/O writes can write SRAM</text>
+<text x="825" y="938" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="600" fill="#fde68a" text-anchor="start">! Manual byte 3E is F5 (/ROMS1), although its prose says /VIDS</text>
+<text x="1510" y="1012" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#70879b" text-anchor="end">Generated by scripts/verify_memory_map.py</text>
+</svg>
