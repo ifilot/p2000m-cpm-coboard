@@ -1,0 +1,85 @@
+
+(rules PCB p2000m-cpm-coboard
+  (snap_angle 
+    fortyfive_degree
+  )
+  (autoroute_settings
+    (fanout off)
+    (autoroute on)
+    (postroute on)
+    (vias on)
+    (via_costs 50)
+    (plane_via_costs 5)
+    (start_ripup_costs 100)
+    (start_pass_no 3634)
+    (layer_rule F.Cu
+      (active on)
+      (preferred_direction horizontal)
+      (preferred_direction_trace_costs 1.0)
+      (against_preferred_direction_trace_costs 2.9)
+    )
+    (layer_rule B.Cu
+      (active on)
+      (preferred_direction vertical)
+      (preferred_direction_trace_costs 1.0)
+      (against_preferred_direction_trace_costs 1.5)
+    )
+  )
+  (rule
+    (width 200.0)
+    (clear 200.0)
+    (clear 100.0 (type smd_to_turn_gap))
+    (clear 50.0 (type smd_smd))
+  )
+  (padstack "Via[0-1]_600:300_um"
+    (shape
+      (circle F.Cu 600.0 0.0 0.0)
+    )
+    (shape
+      (circle B.Cu 600.0 0.0 0.0)
+    )
+    (attach off)
+  )
+  (via 
+    "Via[0-1]_600:300_um" "Via[0-1]_600:300_um" default
+  )
+  (via 
+    "Via[0-1]_600:300_um-kicad_default" "Via[0-1]_600:300_um" "kicad_default"
+  )
+  (via_rule
+    default "Via[0-1]_600:300_um"
+  )
+  (via_rule
+    "kicad_default" "Via[0-1]_600:300_um-kicad_default"
+  )
+  (class default
+    (clearance_class default)
+    (via_rule default)
+    (rule
+      (width 200.0)
+    )
+    (circuit 
+      (use_layer F.Cu B.Cu)
+    )
+  )
+  (class "kicad_default"
+    GND VCC P0 P1 P2 P3 P4 P5
+    P6 P7 A11 A12 A13 A14 A15 "/~{T_SEL}"
+    "Net-(J3-Pin_2)" "unconnected-(U2-NC-Pad1)" ~{MRQ} ~{RAMS3} "unconnected-(U2-D4-Pad18)" "/~{CPM_SEL}" "unconnected-(U2-NC-Pad30)" A7
+    A6 A4 ~{IORQ} ~{WR} A5 "unconnected-(U5-O7-Pad7)" "unconnected-(U5-O6-Pad9)" "unconnected-(U5-O5-Pad10)"
+    "unconnected-(U5-O4-Pad11)" "unconnected-(U5-O3-Pad12)" "unconnected-(U5-O2-Pad13)" "unconnected-(U5-O1-Pad14)" "/OUT_$2x" ~{RES} D7 "unconnected-(U4B-~{Q}-Pad8)"
+    "unconnected-(U4B-Q-Pad9)" "unconnected-(U4B-D-Pad12)" A3 A2 A1 A0 D0 D1
+    D2 D3 D4 D5 D6 A10 ~{RD} A9
+    A8 D RA12 RA13 RA14 RA15 ~{INT} ~{WAIT}
+    ~{M1} ~{LOCK} ~{RFSH} KBI20 ~{PHI} ~{PHI2} 4MHz "unconnected-(U6-C4-Pad9)"
+    "unconnected-(U3-Pad15)" "unconnected-(U3-Pad16)"
+    (clearance_class "kicad_default")
+    (via_rule kicad_default)
+    (rule
+      (width 200.0)
+    )
+    (circuit 
+      (use_layer F.Cu B.Cu)
+    )
+  )
+)

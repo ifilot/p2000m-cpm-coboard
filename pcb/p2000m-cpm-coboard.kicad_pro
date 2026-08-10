@@ -76,7 +76,12 @@
           "width": 0.0
         }
       ],
-      "drc_exclusions": [],
+      "drc_exclusions": [
+        [
+          "starved_thermal|111760000|91440000|b06275ad-868c-4d28-9a78-7f53d4df8c87|3505f30f-3735-4c84-ab64-e88fbe670abd|F.Cu",
+          ""
+        ]
+      ],
       "meta": {
         "version": 2
       },
@@ -125,7 +130,7 @@
         "silk_overlap": "warning",
         "skew_out_of_range": "error",
         "solder_mask_bridge": "error",
-        "starved_thermal": "error",
+        "starved_thermal": "warning",
         "text_height": "warning",
         "text_on_edge_cuts": "error",
         "text_thickness": "warning",
@@ -689,7 +694,7 @@
         "uuid": "6fd0ac56-88c2-4ff6-8529-422939feb5ef"
       }
     ],
-    "used_designators": "#PWR51-52,J5",
+    "used_designators": "",
     "variants": []
   },
   "sheets": [

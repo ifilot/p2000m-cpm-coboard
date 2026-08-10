@@ -17093,7 +17093,7 @@
 				)
 			)
 		)
-		(property "Footprint" "TerminalBlock:TerminalBlock_bornier-2_P5.08mm"
+		(property "Footprint" "TerminalBlock_RND:TerminalBlock_RND_205-00232_1x02_P5.08mm_Horizontal"
 			(at 102.87 165.1 0)
 			(hide yes)
 			(show_name no)
