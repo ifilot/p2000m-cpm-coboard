@@ -1,0 +1,112 @@
+Verification notes
+------------------
+Factory signal ranges were checked against the P2000 M/T Field Support Manual,
+pages 3-3 and 3-14. The M video board generates VIDS internally for 5000-5FFF;
+therefore an FD factory-PROM byte in that range means the CPU-board RAMS2 output
+is active, not that the functional memory there is extension RAM. The manual
+does not publish the M PROM byte itself. The P2000T+ROM2 tables are a
+project-specific variant and are not documented in the field-support manual.
+
+P2000M
+------
+
+2 * 2716	7	6	5	4	3	2	1	0
+		RAMS2	CARS2\	CARS1\	ROMS2\	ROMS1\	VIDS\	RAMS1	MBEN\
+74 *	1	0	1	1	1	0	1	0	0	0000-07FF MotherBoard
+6C *	1	0	1	1	0	1	1	0	0	0800-0FFF MB
+5C *	4	0	1	0	1	1	1	0	0	1000-2FFF CARtridge
+3C *	4	0	0	1	1	1	1	0	0	3000-4FFF CAR
+FD *	2	1	1	1	1	1	1	0	1	5000-5FFF RAMS2; M video board separately decodes VIDS
+7E *	8	0	1	1	1	1	1	1	0	6000-9FFF MB
+FD *   12	1	1	1	1	1	1	0	1	A000-FFFF EXT
+
+-----
+
+1 * 2732	7	6	5	4	3	2	1	0
+		RAMS2	CARS2\	CARS1\	ROMS2\	ROMS1\	VIDS\	RAMS1	MBEN\
+74 *	2	0	1	1	1	0	1	0	0	0000-0FFF MB
+5C *	4	0	1	0	1	1	1	0	0	1000-2FFF CAR
+3C *	4	0	0	1	1	1	1	0	0	3000-4FFF CAR
+FD *	2	1	1	1	1	1	1	0	1	5000-5FFF RAMS2; M video board separately decodes VIDS
+7E *	8	0	1	1	1	1	1	1	0	6000-9FFF MB
+FD *   12	1	1	1	1	1	1	0	1	A000-FFFF EXT
+
+-----
+
+CP/M		7	6	5	4	3	2	1	0
+		RAMS2	CARS2\	CARS1\	ROMS2\	VIDS\	RAMS3\	RAMS1	MBEN\
+7E *	8	0	1	1	1	1	1	1	0	0000-3FFF MB
+FD *   12	1	1	1	1	1	1	0	1	4000-9FFF EXT
+79 *	8	0	1	1	1	1	0	0	1	A000-DFFF CPM
+5C *	2	0	1	0	1	1	1	0	0	E000-EFFF CAR
+FD *	2	1	1	1	1	1	1	0	1	F000-FFFF RAMS2; U6 maps RA to 5000-5FFF
+
+---------------------------------------------------------------------------------------------
+
+P2000T
+------
+
+2 * 2716	7	6	5	4	3	2	1	0
+		RAMS2	CARS2\	CARS1\	ROMS2\	ROMS1\	VIDS\	RAMS1	MBEN\
+74 *	1	0	1	1	1	0	1	0	0	0000-07FF MB
+6C *	1	0	1	1	0	1	1	0	0	0800-0FFF MB
+5C *	4	0	1	0	1	1	1	0	0	1000-2FFF CAR
+3C *	4	0	0	1	1	1	1	0	0	3000-4FFF CAR
+79 *	1	0	1	1	1	1	0	0	1	5000-57FF MB
+7D *	1	0	1	1	1	1	1	0	1	5800-5FFF ---
+7E *	8	0	1	1	1	1	1	1	0	6000-9FFF MB
+FD *   12	1	1	1	1	1	1	0	1	A000-FFFF EXT
+
+-----
+
+1 * 2732	7	6	5	4	3	2	1	0
+		RAMS2	CARS2\	CARS1\	ROMS2\	ROMS1\	VIDS\	RAMS1	MBEN\
+74 *	2	0	1	1	1	0	1	0	0	0000-0FFF MB
+5C *	4	0	1	0	1	1	1	0	0	1000-2FFF CAR
+3C *	4	0	0	1	1	1	1	0	0	3000-4FFF CAR
+79 *	1	0	1	1	1	1	0	0	1	5000-57FF MB
+7D *	1	0	1	1	1	1	1	0	1	5800-5FFF ---
+7E *	8	0	1	1	1	1	1	1	0	6000-9FFF MB
+FD *   12	1	1	1	1	1	1	0	1	A000-FFFF EXT
+
+-----
+
+CP/M		7	6	5	4	3	2	1	0
+		RAMS2	CARS2\	CARS1\	ROMS2\	VIDS\	RAMS3\	RAMS1	MBEN\
+7E *	8	0	1	1	1	1	1	1	0	0000-3FFF MB
+FD *   12	1	1	1	1	1	1	0	1	4000-9FFF EXT
+79 *	8	0	1	1	1	1	0	0	1	A000-DFFF CPM
+5C *	2	0	1	0	1	1	1	0	0	E000-EFFF CAR
+75 *	1	0	1	1	1	0	1	0	1	F000-F7FF MB
+7D *	1	0	1	1	1	1	1	0	1	F800-FFFF ---
+
+---------------------------------------------------------------------------------------------
+
+P2000T + ROM2
+-------------
+
+		7	6	5	4	3	2	1	0
+		RAMS2	CARS2\	CARS1\	ROMS2\	ROMS1\	VIDS\	RAMS1	MBEN\
+74 *	2	0	1	1	1	0	1	0	0	0000-0FFF MB
+5C *	4	0	1	0	1	1	1	0	0	1000-2FFF CAR
+3C *	4	0	0	1	1	1	1	0	0	3000-4FFF CAR
+79 *	1	0	1	1	1	1	0	0	1	5000-57FF MB
+6C *	1	0	1	1	0	1	1	0	0	5800-5FFF MB
+7E *	8	0	1	1	1	1	1	1	0	6000-9FFF MB
+FD *   12	1	1	1	1	1	1	0	1	A000-FFFF EXT
+
+-----
+
+CP/M		7	6	5	4	3	2	1	0
+		RAMS2	CARS2\	CARS1\	ROMS2\	VIDS\	RAMS3\	RAMS1	MBEN\
+7E *	8	0	1	1	1	1	1	1	0	0000-3FFF MB
+FD *   12	1	1	1	1	1	1	0	1	4000-9FFF EXT
+79 *	8	0	1	1	1	1	0	0	1	A000-DFFF CPM
+5C *	2	0	1	0	1	1	1	0	0	E000-EFFF CAR
+75 *	1	0	1	1	1	0	1	0	1	F000-F7FF MB
+6C *	1	0	1	1	0	1	1	0	0	F800-FFFF MB
+
+-----
+
+CP/M = Sanecal MW106A
+=====================

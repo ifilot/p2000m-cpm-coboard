@@ -69,7 +69,13 @@
           "thermal_relief_spoke_width": 0.5
         }
       },
-      "diff_pair_dimensions": [],
+      "diff_pair_dimensions": [
+        {
+          "gap": 0.0,
+          "via_gap": 0.0,
+          "width": 0.0
+        }
+      ],
       "drc_exclusions": [],
       "meta": {
         "version": 2
@@ -203,7 +209,12 @@
           "td_width_to_size_filter_ratio": 0.9
         }
       ],
-      "track_widths": [],
+      "track_widths": [
+        0.0,
+        0.1,
+        0.2,
+        0.5
+      ],
       "tuning_pattern_settings": {
         "diff_pair_defaults": {
           "corner_radius_percentage": 80,
@@ -230,7 +241,12 @@
           "spacing": 0.6
         }
       },
-      "via_dimensions": [],
+      "via_dimensions": [
+        {
+          "diameter": 0.0,
+          "drill": 0.0
+        }
+      ],
       "zones_allow_external_fillets": false
     },
     "ipc2581": {
@@ -525,7 +541,7 @@
       "idf": "",
       "netlist": "",
       "plot": "",
-      "specctra_dsn": "",
+      "specctra_dsn": "p2000m-cpm-coboard.dsn",
       "step": "",
       "vrml": ""
     },
@@ -673,7 +689,7 @@
         "uuid": "6fd0ac56-88c2-4ff6-8529-422939feb5ef"
       }
     ],
-    "used_designators": "U2-7,#PWR5-50,#FLG1-2,R1-2,J3-5,C1-7",
+    "used_designators": "#PWR51-52,J5",
     "variants": []
   },
   "sheets": [
