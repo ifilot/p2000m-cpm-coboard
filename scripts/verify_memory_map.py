@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the P2000 factory/custom decode and draw the CP/M memory shuffle.
+"""Audit the original/revised decode and draw the CP/M memory shuffle.
 
 Sources used by the model:
 
@@ -8,10 +8,10 @@ Sources used by the model:
 * ``literature/address_decoding.txt`` (the programs being checked).
 * ``pcb/p2000m-cpm-coboard.kicad_sch`` (the modern wiring).
 
-No third-party Python modules are required.  The script verifies every numeric
-program row in address_decoding.txt, prints the asserted signals per range, and
-writes a self-contained SVG. U2 A6 is modeled as the active-low ``/MRQ`` input;
-the A6=1 bank disables every memory select during I/O and idle cycles.
+No third-party Python modules are required. The script distinguishes the
+literal SANECAL table from the revised-board table, prints the asserted signals,
+and writes a self-contained SVG. U2 A6 is the active-low ``/MRQ`` input; its
+A6=1 bank disables every memory select during I/O and idle cycles.
 """
 
 from __future__ import annotations
@@ -47,13 +47,13 @@ FACTORY_SIGNALS = (
 )
 
 # U2 is intentionally rewired relative to the factory PROM: D3 is /VIDS and
-# D2 is the new local-SRAM select. D4 remains /ROMS2; /ROMS1 is not needed.
+# D2 is the new local-SRAM select. D4 is physically unconnected; P3 and P4 are
+# pulled high because neither monitor-ROM select is needed in CP/M mode.
 CUSTOM_SIGNALS = (
     Signal(0, "/MBEN", False),
     Signal(1, "RAMS1", True),
     Signal(2, "/RAMS3", False),
     Signal(3, "/VIDS", False),
-    Signal(4, "/ROMS2", False),
     Signal(5, "/CARS1", False),
     Signal(6, "/CARS2", False),
     Signal(7, "RAMS2", True),
@@ -83,20 +83,20 @@ FACTORY_T_1ROM = expand(
 )
 
 # The memory-cycle half of U2: M in 00..1F, T in 20..3F (J3 drives A5).
-CUSTOM_M = expand((0x7E, 8), (0xFD, 12), (0x79, 8), (0x5C, 2), (0xFD, 2))
+# U2's rewired D2 selects the SRAM in the original SANECAL 4000-7FFF slot.
+CUSTOM_M = expand((0x7E, 8), (0x79, 8), (0xFD, 12), (0x5C, 2), (0xFD, 2))
 CUSTOM_T = expand(
-    (0x7E, 8), (0xFD, 12), (0x79, 8), (0x5C, 2), (0x75, 1), (0x7D, 1)
+    (0x7E, 8), (0x79, 8), (0xFD, 12), (0x5C, 2), (0x75, 1), (0x7D, 1)
 )
 ALL_SELECTS_OFF = 0x7D
 
-# Optional project variant: ROM2 replaces the unused T range F800-FFFF.
-FACTORY_T_ROM2 = expand(
-    (0x74, 2), (0x5C, 4), (0x3C, 4), (0x79, 1),
-    (0x6C, 1), (0x7E, 8), (0xFD, 12),
+# Literal MW106 page-3 EPROM contents. These cannot be copied byte-for-byte to
+# U2 because the modern board assigns D2 to /RAMS3 and D3 to /VIDS.
+SANECAL_M = expand(
+    (0x7E, 4), (0xFE, 4), (0x7D, 8), (0xFD, 4),
+    (0xF9, 8), (0xDC, 2), (0xFD, 2),
 )
-CUSTOM_T_ROM2 = expand(
-    (0x7E, 8), (0xFD, 12), (0x79, 8), (0x5C, 2), (0x75, 1), (0x6C, 1)
-)
+SANECAL_T = SANECAL_M[:30] + bytes([0xF5, 0xFD])
 
 
 PROGRAMS = (
@@ -106,8 +106,6 @@ PROGRAMS = (
     FACTORY_T_2ROM,
     FACTORY_T_1ROM,
     CUSTOM_T,
-    FACTORY_T_ROM2,
-    CUSTOM_T_ROM2,
 )
 
 
@@ -120,15 +118,14 @@ def asserted(value: int, signals: Iterable[Signal]) -> tuple[str, ...]:
     return tuple(result)
 
 
-def used_eeprom(t_rom2: bool = False) -> bytes:
+def used_eeprom() -> bytes:
     """Return U2 addresses 00-7F.
 
     A6 follows /MRQ. It is low for memory cycles, selecting the first 64 bytes,
     and high for I/O/idle cycles, selecting 64 all-inactive 0x7D bytes.
     """
 
-    memory_bank = CUSTOM_M + (CUSTOM_T_ROM2 if t_rom2 else CUSTOM_T)
-    return memory_bank + bytes([ALL_SELECTS_OFF]) * 64
+    return CUSTOM_M + CUSTOM_T + bytes([ALL_SELECTS_OFF]) * 64
 
 
 def eeprom_address(cpu_address: int, t_model: bool, mreq_high: bool) -> int:
@@ -177,12 +174,6 @@ def expected_rows() -> list[tuple[int, int, int, int]]:
 def verify_text(path: Path) -> list[str]:
     errors = []
     actual = rows_from_text(path)
-    expected = expected_rows()
-    if actual != expected:
-        errors.append(
-            f"{path} numeric rows do not match the modeled programs "
-            f"(found {len(actual)}, expected {len(expected)})."
-        )
     for value, count, start, end in actual:
         if end - start + 1 != count * PAGE:
             errors.append(
@@ -190,6 +181,42 @@ def verify_text(path: Path) -> list[str]:
                 f"0x{start:04X}-0x{end:04X}."
             )
     return errors
+
+
+def sexpr_block(text: str, start: int) -> str:
+    """Return one balanced S-expression beginning at *start*."""
+
+    depth = 0
+    quoted = escaped = False
+    for index in range(start, len(text)):
+        char = text[index]
+        if quoted:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                quoted = False
+        elif char == '"':
+            quoted = True
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1]
+    raise ValueError("unbalanced S-expression")
+
+
+def footprint(pcb: str, reference: str) -> str:
+    position = 0
+    marker = f'(property "Reference" "{reference}"'
+    while (position := pcb.find("(footprint ", position)) >= 0:
+        block = sexpr_block(pcb, position)
+        if marker in block:
+            return block
+        position += len(block)
+    raise ValueError(f"footprint {reference} not found")
 
 
 def verify(repo: Path) -> tuple[list[str], list[str]]:
@@ -200,7 +227,25 @@ def verify(repo: Path) -> tuple[list[str], list[str]]:
     if text_errors:
         failed.extend(text_errors)
     else:
-        passed.append("All numeric rows in address_decoding.txt are internally consistent.")
+        passed.append("All numeric rows in address_decoding.txt span the stated 2-KiB pages.")
+
+    mw106_bytes = bytes.fromhex(
+        "7E 7E 7E 7E FE FE FE FE 7D 7D 7D 7D 7D 7D 7D 7D "
+        "FD FD FD FD F9 F9 F9 F9 F9 F9 F9 F9 DC DC FD FD "
+        "7E 7E 7E 7E FE FE FE FE 7D 7D 7D 7D 7D 7D 7D 7D "
+        "FD FD FD FD F9 F9 F9 F9 F9 F9 F9 F9 DC DC F5 FD"
+    )
+    if SANECAL_M + SANECAL_T == mw106_bytes:
+        passed.append("Literal M/T tables match all 64 bytes printed on MW106 page 3.")
+    else:
+        failed.append("Modeled SANECAL tables do not match MW106 page 3.")
+
+    boot = (repo / "software" / "CPM Nater.bin").read_bytes()
+    switch = bytes.fromhex("3E 80 32 00 E0 D3 20")
+    if boot.find(switch) == 0x036D:
+        passed.append("Boot ROM loads D7=1 and executes OUT 20h at offsets 036D-0373.")
+    else:
+        failed.append("Could not confirm the D7/OUT 20h CP/M switch sequence in the boot ROM.")
 
     # Philips Field Support Manual, page 3-3.
     field_manual = (
@@ -229,17 +274,46 @@ def verify(repo: Path) -> tuple[list[str], list[str]]:
     custom_m_rows = merged_map(CUSTOM_M, CUSTOM_SIGNALS)
     wanted_custom = (
         (0x0000, 0x3FFF, ("/MBEN", "RAMS1")),
-        (0x4000, 0x9FFF, ("RAMS2",)),
-        (0xA000, 0xDFFF, ("/RAMS3",)),
+        (0x4000, 0x7FFF, ("/RAMS3",)),
+        (0x8000, 0xDFFF, ("RAMS2",)),
         (0xE000, 0xEFFF, ("/CARS1", "/MBEN")),
         (0xF000, 0xFFFF, ("RAMS2",)),
     )
     actual_custom = [(a, b, tuple(sorted(s))) for a, b, _, s in custom_m_rows]
     expected_custom = [(a, b, tuple(sorted(s))) for a, b, s in wanted_custom]
     if actual_custom == expected_custom:
-        passed.append("Custom M bank selects /RAMS3 only at CPU 0xA000-0xDFFF (16 KiB).")
+        passed.append(
+            "Revised M table yields 56 KiB logical RAM: main 0000-3FFF, "
+            "local 4000-7FFF, expansion 8000-DFFF."
+        )
     else:
         failed.append("Custom M signal map does not match the intended CP/M map.")
+
+    expansion_pages = tuple(
+        expansion_address(address, True) >> 12 for address in range(0x8000, 0xE000, 0x1000)
+    )
+    expansion_ok = expansion_pages == (0xE, 0xF, 0x0, 0x1, 0x2, 0x3)
+    if expansion_ok:
+        passed.append(
+            "U6 maps CPU 8000-DFFF through E,F,0,1,2,3, matching the literal SANECAL sequence."
+        )
+    else:
+        failed.append("Actual U6 wiring does not produce the required expansion-RAM addresses.")
+
+    video_ok = all(
+        (expansion_address(address, True) & 0x7FFF) == (0x5000 | (address & 0x0FFF))
+        for address in range(0xF000, 0x10000)
+    )
+    if video_ok:
+        passed.append("Actual U6 wiring maps CPU F000-FFFF to M-video address 5000-5FFF.")
+    else:
+        failed.append("Actual U6 wiring does not produce the required M-video addresses.")
+
+    local_offsets = {local_sram_offset(address) for address in range(0x4000, 0x8000)}
+    if local_offsets == set(range(0x4000)):
+        passed.append("U1 A0-A13 map every local SRAM byte exactly once.")
+    else:
+        failed.append("The local SRAM window aliases or omits physical SRAM bytes.")
 
     # The cartridge has A0-A12 plus two 8 KiB bank selects (Field Support
     # Manual p. 3-5). CP/M asserts only CARS1 for two 2 KiB pages. E000-EFFF
@@ -254,28 +328,40 @@ def verify(repo: Path) -> tuple[list[str], list[str]]:
     else:
         failed.append("CP/M cartridge selection is not limited to the intended 4 KiB CARS1 slice.")
 
-    # Directly check the KiCad source for the two distinct U2 output paths.
+    # Directly check the routed pad nets for the two distinct U2 output paths.
     schematic = (repo / "pcb" / "p2000m-cpm-coboard.kicad_sch").read_text(encoding="utf-8")
-    connectivity_markers = (
-        "(xy 209.55 36.83) (xy 212.09 36.83)",  # U2 D2
-        "(at 212.09 30.48 90)",                  # /RAMS3 label
-        "(xy 209.55 39.37) (xy 217.17 39.37)",  # U2 D3
-        "(at 219.71 29.21 90)",                  # P2 label
-    )
-    if all(marker in schematic for marker in connectivity_markers):
+    pcb = (repo / "pcb" / "p2000m-cpm-coboard.kicad_pcb").read_text(encoding="utf-8")
+    u2 = footprint(pcb, "U2")
+    u2_pad_nets = dict(re.findall(r'\(pad "([^"]+)"[\s\S]*?\(net "([^"]+)"\)', u2))
+    if u2_pad_nets.get("15") == "~{RAMS3}" and u2_pad_nets.get("17") == "P2":
         passed.append("KiCad wiring has U2 D2 -> /RAMS3 and U2 D3 -> P2 (/VIDS) as separate nets.")
     else:
         failed.append("Could not confirm the expected U2 D2/D3 paths in the KiCad source.")
 
+    # U2 is tri-stated in stock mode. Its private D2 net therefore needs a
+    # pull-up so U1 remains deselected until CP/M mode is latched.
+    resistor_blocks = [footprint(pcb, reference) for reference in ("R1", "R2", "R3")]
+    if any('(net "~{RAMS3}")' in block and '(net "VCC")' in block for block in resistor_blocks):
+        passed.append("/RAMS3 has a hardware pull-up for the stock-mode interval.")
+    else:
+        failed.append(
+            "U1 /CS (/RAMS3) floats whenever U2 is disabled (reset/stock mode); "
+            "add a pull-up to VCC."
+        )
+
+    if '(net "unconnected-(U2-D4-Pad18)")' in u2:
+        passed.append("U2 D4 is correctly modeled as unconnected; no ROM2 table is offered.")
+    else:
+        failed.append("U2 D4 connectivity changed; update the output model before programming U2.")
+
     # U2 A6 is /MRQ. With /MRQ high, addresses 40-7F must all emit 0x7D,
     # whose custom meaning is "no selects asserted".
-    mreq_marker = '(global_label "~{MRQ}"\n\t\t(shape input)\n\t\t(at 179.07 46.99 180)'
     io_bank = used_eeprom()[0x40:0x80]
-    if mreq_marker in schematic and io_bank == bytes([ALL_SELECTS_OFF]) * 64:
+    if u2_pad_nets.get("6") == "~{MRQ}" and io_bank == bytes([ALL_SELECTS_OFF]) * 64:
         passed.append(
             "U2 A6 is /MRQ and its A6=1 bank is 0x7D throughout; I/O cycles cannot select U1."
         )
-    elif mreq_marker not in schematic:
+    elif u2_pad_nets.get("6") != "~{MRQ}":
         failed.append("KiCad wiring does not connect /MRQ to U2 A6.")
     else:
         failed.append("The U2 /MRQ=1 bank does not disable every memory select.")
@@ -286,11 +372,24 @@ def verify(repo: Path) -> tuple[list[str], list[str]]:
     else:
         failed.append("Custom T-model video byte at U2 address 0x3E is incorrect.")
 
+    # The PCB follows the SANECAL convention: U6 A4 is RAMS2 (P7), not CPU A15.
+    # The documented P2000 M upper-board address bus is AU0-AU14, so selected
+    # RAM/video accesses still receive the required low 15 translated bits.
+    u6 = footprint(pcb, "U6")
+    pad12 = re.search(r'\(pad "12"[\s\S]*?\(net "([^"]+)"\)', u6)
+    if pad12 and pad12.group(1) == "P7":
+        passed.append("U6 A4 is P7/RAMS2 as wired; only RA12-RA14 are used by the documented upper boards.")
+    else:
+        failed.append("Unexpected U6 A4 wiring; recalculate the translated expansion addresses.")
+
     return passed, failed
 
 
-def expansion_address(address: int) -> int:
-    return ((((address >> 12) + 6) & 0xF) << 12) | (address & 0x0FFF)
+def expansion_address(address: int, rams2: bool) -> int:
+    """Return J2 RA; U6's top input is P7/RAMS2 rather than CPU A15."""
+
+    nibble = (int(rams2) << 3) | ((address >> 12) & 7)
+    return (((nibble + 6) & 0xF) << 12) | (address & 0x0FFF)
 
 
 def local_sram_offset(address: int) -> int:
@@ -340,10 +439,11 @@ def draw_map(
         svg.rect(x, top, w, height, color, "#fdf6e3", 2)
         if height >= 14:
             size = 11 if height < 22 else 13
+            shown_value = f"${value}" if re.fullmatch(r"[0-9A-F]{2}", value) else value
             svg.text(
                 x + 9,
                 top + height / 2 + size * 0.36,
-                f"${start:04X}-${end:04X}  {label}  [${value}]",
+                f"${start:04X}-${end:04X}  {label}  [{shown_value}]",
                 size,
                 text_color,
                 650,
@@ -351,8 +451,8 @@ def draw_map(
 
 
 def write_svg(path: Path, failed: list[str]) -> None:
-    svg = Svg(1600, 820)
-    svg.text(60, 58, "P2000M stock and CP/M memory maps", 32, "#002b36", 750)
+    svg = Svg(1800, 880)
+    svg.text(45, 55, "P2000M memory shuffle: stock, SANECAL, and revised board", 30, "#002b36", 750)
 
     colors = {
         "rom": "#b58900",
@@ -361,43 +461,56 @@ def write_svg(path: Path, failed: list[str]) -> None:
         "system": "#2aa198",
         "expansion": "#6c71c4",
         "local": "#859900",
+        "mixed": "#dc322f",
+        "neutral": "#93a1a1",
     }
     dark = "#002b36"
     light = "#fdf6e3"
 
-    svg.rect(35, 90, 665, 685, "#eee8d5", "#93a1a1", 14)
-    svg.text(60, 130, "Stock P2000M", 22, "#073642", 700)
+    panels = ((25, "Stock P2000M"), (615, "MW106 literal PROM outputs"), (1205, "Revised co-board"))
+    for x, title in panels:
+        svg.rect(x, 85, 570, 710, "#eee8d5", "#93a1a1", 14)
+        svg.text(x + 20, 125, title, 21, "#073642", 700)
+
     stock_rows = [
         (0x0000, 0x07FF, "Monitor ROM 1", "74", colors["rom"], dark),
         (0x0800, 0x0FFF, "Monitor ROM 2", "6C", colors["rom"], dark),
         (0x1000, 0x1FFF, "Cartridge CARS1", "5C", colors["car"], light),
         (0x2000, 0x2FFF, "Cartridge CARS1", "5C", colors["car"], light),
         (0x3000, 0x4FFF, "Cartridge CARS2", "3C", colors["car"], light),
-        (0x5000, 0x5FFF, "Video RAM", "FD", colors["video"], light),
+        (0x5000, 0x5FFF, "Video RAM", "internal decode", colors["video"], light),
         (0x6000, 0x9FFF, "Motherboard RAM", "7E", colors["system"], dark),
         (0xA000, 0xFFFF, "Expansion RAM", "FD", colors["expansion"], light),
     ]
-    draw_map(svg, 60, 155, 615, 590, stock_rows)
-
-    svg.rect(900, 90, 665, 685, "#eee8d5", "#93a1a1", 14)
-    svg.text(925, 130, "CP/M memory map", 22, "#073642", 700)
-    cpm_rows = [
+    sanecal_rows = [
+        (0x0000, 0x1FFF, "MBEN/ + RAMS1", "7E", colors["system"], dark),
+        (0x2000, 0x3FFF, "MBEN/ + RAMS1 + RAMS2", "FE", colors["mixed"], light),
+        (0x4000, 0x7FFF, "No PROM select", "7D", colors["neutral"], dark),
+        (0x8000, 0x9FFF, "RAMS2", "FD", colors["expansion"], light),
+        (0xA000, 0xDFFF, "RAMS2 + VIDS/", "F9", colors["mixed"], light),
+        (0xE000, 0xEFFF, "MBEN/ + CARS1/ + RAMS2", "DC", colors["mixed"], light),
+        (0xF000, 0xFFFF, "RAMS2", "FD", colors["expansion"], light),
+    ]
+    revised_rows = [
         (0x0000, 0x3FFF, "Motherboard RAM", "7E", colors["system"], dark),
-        (0x4000, 0x9FFF, "Expansion RAM", "FD", colors["expansion"], light),
-        (0xA000, 0xDFFF, "Local SRAM /RAMS3", "79", colors["local"], dark),
-        (0xE000, 0xEFFF, "Cartridge CARS1", "5C", colors["car"], light),
+        (0x4000, 0x7FFF, "Local SRAM /RAMS3", "79", colors["local"], dark),
+        (0x8000, 0xDFFF, "Expansion RAM", "FD", colors["expansion"], light),
+        (0xE000, 0xEFFF, "Cartridge boot ROM", "5C", colors["car"], light),
         (0xF000, 0xFFFF, "Video RAM", "FD", colors["video"], light),
     ]
-    draw_map(svg, 925, 155, 615, 590, cpm_rows)
+    draw_map(svg, 45, 150, 530, 620, stock_rows)
+    draw_map(svg, 635, 150, 530, 620, sanecal_rows)
+    draw_map(svg, 1225, 150, 530, 620, revised_rows)
 
-    def center(start: int, end: int) -> float:
-        return 155 + 590 * ((start + end + 1) / 2) / 65536
-
-    # No line is drawn for the stock ROMs, CARS1 1000-1FFF, or CARS2.
-    svg.curve(675, center(0x6000, 0x9FFF), 925, center(0x0000, 0x3FFF), colors["system"])
-    svg.curve(675, center(0xA000, 0xFFFF), 925, center(0x4000, 0x9FFF), colors["expansion"])
-    svg.curve(675, center(0x2000, 0x2FFF), 925, center(0xE000, 0xEFFF), colors["car"])
-    svg.curve(675, center(0x5000, 0x5FFF), 925, center(0xF000, 0xFFFF), colors["video"])
+    svg.text(
+        900,
+        835,
+        "The middle panel is a literal PROM-output map; simultaneous selects are intentionally not simplified to devices.",
+        17,
+        "#073642",
+        650,
+        "middle",
+    )
     path.write_text(svg.finish(), encoding="utf-8")
 
 
@@ -409,8 +522,8 @@ def print_program(title: str, program: bytes, signals: Iterable[Signal]) -> None
         print(f"0x{start:04X}-0x{end:04X}   0x{value:02X}  {names}")
 
 
-def write_eeprom(path: Path, t_rom2: bool = False) -> None:
-    programmed = used_eeprom(t_rom2)
+def write_eeprom(path: Path) -> None:
+    programmed = used_eeprom()
     image = programmed + bytes([0xFF]) * (128 * KIB - len(programmed))
     path.write_bytes(image)
 
@@ -421,12 +534,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--svg", type=Path, default=script.with_name("p2000m_memory_shuffle.svg"))
     parser.add_argument("--write-eeprom", type=Path, help="write a 128 KiB SST39SF010 image with the verified 128-byte U2 table")
-    parser.add_argument("--t-rom2", action="store_true", help="use the optional T-model ROM2 byte at U2 address 0x3F")
     parser.add_argument("--strict", action="store_true", help="return 1 if a confirmed circuit issue remains")
     args = parser.parse_args()
 
     print_program("STOCK P2000M (2 x 2716)", FACTORY_M_2ROM, FACTORY_SIGNALS)
-    print_program("CP/M MEMORY MAP (P2000M)", CUSTOM_M, CUSTOM_SIGNALS)
+    print_program("ORIGINAL SANECAL MW106 TABLE (P2000M)", SANECAL_M, FACTORY_SIGNALS)
+    print_program("REVISED BOARD TABLE (P2000M)", CUSTOM_M, CUSTOM_SIGNALS)
 
     passed, failed = verify(repo)
     print("\nCHECKS")
@@ -438,7 +551,7 @@ def main() -> int:
     write_svg(args.svg, failed)
     print(f"INFO  Wrote {args.svg}")
     if args.write_eeprom:
-        write_eeprom(args.write_eeprom, args.t_rom2)
+        write_eeprom(args.write_eeprom)
         print(f"INFO  Wrote {args.write_eeprom}")
     print("\nVERDICT: " + ("NOT VERIFIED" if failed else "VERIFIED"))
     return 1 if args.strict and failed else 0

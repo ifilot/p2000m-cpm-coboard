@@ -5965,7 +5965,7 @@
 	)
 	(text "Select \n16 KiB RAM"
 		(exclude_from_sim no)
-		(at 212.344 21.59 0)
+		(at 210.566 16.256 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -6055,6 +6055,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "4394d77a-e9c8-47a8-a8bc-f315961e8296")
+	)
+	(junction
+		(at 212.09 22.86)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "4bf0e65e-e742-4dc0-be65-505c15cc834e")
 	)
 	(junction
 		(at 214.63 31.75)
@@ -6510,6 +6516,16 @@
 	)
 	(wire
 		(pts
+			(xy 212.09 22.86) (xy 212.09 20.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "53f12547-926a-4fe5-9ce8-5eb33c98407f")
+	)
+	(wire
+		(pts
 			(xy 267.97 49.53) (xy 264.16 49.53)
 		)
 		(stroke
@@ -6840,7 +6856,7 @@
 	)
 	(wire
 		(pts
-			(xy 212.09 36.83) (xy 212.09 30.48)
+			(xy 212.09 36.83) (xy 212.09 22.86)
 		)
 		(stroke
 			(width 0)
@@ -9698,7 +9714,7 @@
 	)
 	(global_label "~{RAMS3}"
 		(shape input)
-		(at 212.09 30.48 90)
+		(at 212.09 20.32 90)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -9708,7 +9724,7 @@
 		)
 		(uuid "a595c76e-130e-4314-9d23-ec58e443447d")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 212.09 23.1089 90)
+			(at 212.09 12.9489 90)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13117,6 +13133,85 @@
 			(project "p2000m-cpm-coboard"
 				(path "/6fd0ac56-88c2-4ff6-8529-422939feb5ef"
 					(reference "C5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:VCC")
+		(at 207.01 22.86 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "55c126b8-848e-450b-a516-8e9cfb08626a")
+		(property "Reference" "#PWR036"
+			(at 210.82 22.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "VCC"
+			(at 203.2 22.8599 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 207.01 22.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 207.01 22.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"VCC\""
+			(at 207.01 22.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "421c6399-ec73-4e80-a2d3-6280c6177210")
+		)
+		(instances
+			(project "p2000m-cpm-coboard"
+				(path "/6fd0ac56-88c2-4ff6-8529-422939feb5ef"
+					(reference "#PWR036")
 					(unit 1)
 				)
 			)
@@ -16776,6 +16871,87 @@
 			(project "p2000m-cpm-coboard"
 				(path "/6fd0ac56-88c2-4ff6-8529-422939feb5ef"
 					(reference "#PWR029")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R_Small")
+		(at 209.55 22.86 270)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(uuid "d3943e0a-5c6a-458f-a730-9a6d106f28d8")
+		(property "Reference" "R3"
+			(at 208.28 24.638 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.016 1.016)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "4k7"
+			(at 207.772 21.082 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal"
+			(at 209.55 22.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 209.55 22.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor, small symbol"
+			(at 209.55 22.86 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a978b4a3-e460-413b-a169-0fda2c71ea24")
+		)
+		(pin "2"
+			(uuid "66b32570-da9d-404d-803b-80e8587c04d2")
+		)
+		(instances
+			(project "p2000m-cpm-coboard"
+				(path "/6fd0ac56-88c2-4ff6-8529-422939feb5ef"
+					(reference "R3")
 					(unit 1)
 				)
 			)
