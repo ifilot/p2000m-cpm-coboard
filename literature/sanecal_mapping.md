@@ -1,116 +1,55 @@
 # SANECAL MW106 M-model mapping
 
-This mapping is derived only from the first two EPROM rows printed in section
-3.4 of [MW106 CPM Kaart](MW106%20CPM%20Kaart.pdf). No suspected errors have
-been corrected in the transcription or decode.
-
-## Literal EPROM contents
+PROM encoding as printed in MW106:
 
 ```text
 00  7E 7E 7E 7E  FE FE FE FE  7D 7D 7D 7D  7D 7D 7D 7D
 10  FD FD FD FD  F9 F9 F9 F9  F9 F9 F9 F9  DC DC FD FD
 ```
 
-The PROM is addressed by CPU A11-A15, so each byte covers 2 KiB. The original
-SANECAL schematic connects the output bits as follows:
+Several printed values cannot form a valid decode with the signal assignments
+on this board. `FE` asserts both active-high RAM selects, `7D` selects no
+memory, `F9` asserts both `RAMS2` and `RAMS3/`, and `DC` asserts both `RAMS2`
+and `CARS1/`. They are treated here as errors in the printed MW106 table. The
+corrected functional encoding keeps the memory selects mutually exclusive:
 
 ```text
-CP/M       7       6       5       4       3       2       1      0
-         RAMS2  CARS2/  CARS1/  ROMS2/  ROMS1/   VIDS/   RAMS1  MBEN/
-7E * 4     0       1       1       1       1       1       1      0   0000-1FFF
-FE * 4     1       1       1       1       1       1       1      0   2000-3FFF
-7D * 8     0       1       1       1       1       1       0      1   4000-7FFF
-FD * 4     1       1       1       1       1       1       0      1   8000-9FFF
-F9 * 8     1       1       1       1       1       0       0      1   A000-DFFF
-DC * 2     1       1       0       1       1       1       0      0   E000-EFFF
-FD * 2     1       1       1       1       1       1       0      1   F000-FFFF
+00  7E 7E 7E 7E  7E 7E 7E 7E  FD FD FD FD  FD FD FD FD
+10  FD FD FD FD  79 79 79 79  79 79 79 79  5C 5C FD FD
 ```
 
-`RAMS1` and `RAMS2` are active high. The other named outputs are active low.
+## Signal lines
 
-## Literal signal map
+| Line | Signal on this board | Active level | Function |
+|---|---|---:|---|
+| D0 | `MBEN/` | 0 | Enables the memory data-bus path |
+| D1 | `RAMS1` | 1 | Selects the 16 KiB motherboard system RAM |
+| D2 | `RAMS3/` | 0 | Selects the CP/M board's local RAM |
+| D3 | `VIDS/` | 0 | Selects video RAM |
+| D4 | Unconnected | - | No function on this board |
+| D5 | `CARS1/` | 0 | Selects cartridge ROM bank 1 (`1000-2FFF`) |
+| D6 | `CARS2/` | 0 | Selects cartridge ROM bank 2 (`3000-4FFF`) |
+| D7 | `RAMS2` | 1 | Selects the 24 KiB expansion RAM |
+| P3 | `ROMS1/` | 0 | Selects the lower 2 KiB monitor ROM; held at 1 (inactive) on this board |
+| P4 | `ROMS2/` | 0 | Selects the upper 2 KiB monitor ROM; held at 1 (inactive) on this board |
 
-This is what follows directly from the bytes, before assigning an effective
-device to a range:
+## Interpretation
 
-| CPU range | Byte | Asserted outputs |
-|---|---:|---|
-| `0000-1FFF` | `7E` | `MBEN/`, `RAMS1` |
-| `2000-3FFF` | `FE` | `MBEN/`, `RAMS1`, `RAMS2` |
-| `4000-7FFF` | `7D` | none |
-| `8000-9FFF` | `FD` | `RAMS2` |
-| `A000-DFFF` | `F9` | `RAMS2`, `VIDS/` |
-| `E000-EFFF` | `DC` | `MBEN/`, `CARS1/`, `RAMS2` |
-| `F000-FFFF` | `FD` | `RAMS2` |
+Each PROM address covers one 2 KiB CPU-address block because CPU address lines
+A11-A15 drive the PROM address inputs. Consecutive blocks that contain the same
+data are combined below; the block count states how many 2 KiB blocks the row
+covers. `0` is low and `1` is high, and the slash in a signal name denotes an
+active-low signal. D4 is included even though it is not connected. P3 and P4
+are not driven by the PROM and remain high throughout.
 
-The simultaneous selects are part of the printed data. In particular, the
-EPROM rows alone do **not** justify simplifying `FE`, `F9`, or `DC` to a single
-selected device.
+The final column relates the CP/M-visible range to the corresponding part of
+the stock P2000M map. `RAMS3/` has no equivalent destination in the stock map;
+when asserted, it connects the CPU to the RAM fitted on the CP/M board.
 
-## U6 address translation
-
-U6 adds six to the four-bit value formed by `RAMS2` and CPU A14-A12:
-
-```text
-translated page = ((RAMS2 << 3) | A14:A12) + 6  (modulo 16)
-```
-
-CPU A15 is not an input to this value; U6 A4 is P7/`RAMS2` (called `M15` on
-the SANECAL drawing). At 4 KiB granularity the printed bytes therefore produce:
-
-| CPU range | RAMS2 | Translated U6 pages |
-|---|---:|---|
-| `0000-1FFF` | 0 | `6,7` |
-| `2000-3FFF` | 1 | `0,1` |
-| `4000-7FFF` | 0 | `A,B,C,D` |
-| `8000-9FFF` | 1 | `E,F` |
-| `A000-DFFF` | 1 | `0,1,2,3` |
-| `E000-EFFF` | 1 | `4` |
-| `F000-FFFF` | 1 | `5` |
-
-Thus the six expansion-RAM pages selected from `8000-DFFF` are translated in
-the order `E,F,0,1,2,3`. The `F000-FFFF` range is translated to the native
-P2000M video window at `5000-5FFF`.
-
-## Inferred effective memory map
-
-The most direct functional interpretation of the printed M-model rows is:
-
-```text
-CP/M       7       6       5       4       3       2       1      0
-         RAMS2  CARS2/  CARS1/  ROMS2/  ROMS1/   VIDS/   RAMS1  MBEN/
-7E * 4     0       1       1       1       1       1       1      0   0000-1FFF MB
-FE * 4     1       1       1       1       1       1       1      0   2000-3FFF MB (+RAMS2)
-7D * 8     0       1       1       1       1       1       0      1   4000-7FFF CPM RAM
-FD * 4     1       1       1       1       1       1       0      1   8000-9FFF EXT
-F9 * 8     1       1       1       1       1       0       0      1   A000-DFFF EXT (+VIDS/)
-DC * 2     1       1       0       1       1       1       0      0   E000-EFFF CAR (+RAMS2, MBEN/)
-FD * 2     1       1       1       1       1       1       0      1   F000-FFFF M VIDEO
-```
-
-| CPU range | Effective device | Basis and caveat |
-|---|---|---|
-| `0000-3FFF` | 16 KiB motherboard RAM | `MBEN/` and `RAMS1` are asserted throughout; `RAMS2` is additionally asserted in the upper half. |
-| `4000-7FFF` | 16 KiB SANECAL onboard RAM | No external PROM output is asserted; the onboard 4116 bank supplies the local RAM window. |
-| `8000-DFFF` | 24 KiB expansion RAM | `RAMS2` is asserted throughout; `VIDS/` is additionally asserted from `A000-DFFF`. |
-| `E000-EFFF` | CP/M boot cartridge | `CARS1/` is asserted, but so are `RAMS2` and `MBEN/`. |
-| `F000-FFFF` | P2000M video RAM | `RAMS2` is asserted and U6 translates this range to `5000-5FFF`. |
-
-This inferred map contains 56 KiB of contiguous RAM at `0000-DFFF`, followed by
-the 4 KiB boot-ROM window and the 4 KiB P2000M video window.
-
-## Ambiguities exposed by the literal table
-
-The following cannot be resolved from the two EPROM rows alone and should not
-be silently corrected when reproducing the SANECAL design:
-
-- `FE` asserts both the motherboard-RAM and expansion-RAM control signals at
-  `2000-3FFF`.
-- `F9` asserts both `RAMS2` and `VIDS/` at `A000-DFFF`.
-- `DC` asserts the cartridge, `RAMS2`, and `MBEN/` together at `E000-EFFF`.
-- `FD` names only `RAMS2` at `F000-FFFF`; identifying the effective device as
-  P2000M video RAM also requires the U6 translation and video-board decode.
-
-Consequently, the literal bytes establish the signal map with certainty. The
-single-device labels in the effective map are circuit-level interpretations,
-not additional information printed in the manual.
+| Data | Blocks | PROM addresses | CPU address range | D7 `RAMS2` | D6 `CARS2/` | D5 `CARS1/` | D4 unconnected | D3 `VIDS/` | D2 `RAMS3/` | D1 `RAMS1` | D0 `MBEN/` | P3 `ROMS1/` | P4 `ROMS2/` | Landing relative to the stock P2000M map |
+|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| `7E` | 8 | `00-07` | `0000-3FFF` | 0 | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | `6000-9FFF`: all 16 KiB of motherboard RAM |
+| `FD` | 12 | `08-13` | `4000-9FFF` | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | `A000-FFFF`: all 24 KiB of expansion RAM |
+| `79` | 8 | `14-1B` | `A000-DFFF` | 0 | 1 | 1 | 1 | 1 | 0 | 0 | 1 | 1 | 1 | `RAMS3/` connects to the 16 KiB RAM on the CP/M board; there is no stock-map equivalent |
+| `5C` | 2 | `1C-1D` | `E000-EFFF` | 0 | 1 | 0 | 1 | 1 | 1 | 0 | 0 | 1 | 1 | Selects the `CARS1/` ROM slice originally visible at `2000-2FFF` |
+| `FD` | 2 | `1E-1F` | `F000-FFFF` | 1 | 1 | 1 | 1 | 1 | 1 | 0 | 1 | 1 | 1 | `5000-5FFF`: M-model video RAM through the translated address and the video-board decoder |
