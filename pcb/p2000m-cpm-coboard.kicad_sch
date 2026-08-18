@@ -5932,7 +5932,7 @@
 		)
 		(uuid "14f3aa6a-cdb9-434b-95f2-ecbe2380563c")
 	)
-	(text "Manual states\nD0 (wrong)"
+	(text "Manual erroneously\nmentions D0"
 		(exclude_from_sim no)
 		(at 205.486 118.618 0)
 		(effects
@@ -6221,10 +6221,6 @@
 	(no_connect
 		(at 191.77 125.73)
 		(uuid "f2b33494-a24a-4ad2-bb26-422524d9fbc4")
-	)
-	(no_connect
-		(at 38.1 102.87)
-		(uuid "f37db6d4-52cf-459b-9358-7097c04176d2")
 	)
 	(no_connect
 		(at 179.07 77.47)
@@ -15912,6 +15908,85 @@
 			(project "p2000m-cpm-coboard"
 				(path "/6fd0ac56-88c2-4ff6-8529-422939feb5ef"
 					(reference "#PWR030")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:VCC")
+		(at 38.1 102.87 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "b481ce2a-ac00-47fe-8a10-c931d9e536da")
+		(property "Reference" "#PWR037"
+			(at 41.91 102.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "VCC"
+			(at 34.29 102.8699 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 38.1 102.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 38.1 102.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"VCC\""
+			(at 38.1 102.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "81363a2e-dbf4-46ee-b721-f494ca955b85")
+		)
+		(instances
+			(project "p2000m-cpm-coboard"
+				(path "/6fd0ac56-88c2-4ff6-8529-422939feb5ef"
+					(reference "#PWR037")
 					(unit 1)
 				)
 			)
