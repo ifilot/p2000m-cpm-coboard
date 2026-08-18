@@ -64,18 +64,12 @@
           "min_island_area": 10.0,
           "min_thickness": 0.25,
           "pad_connection": 1,
-          "remove_islands": 0,
+          "remove_islands": 1,
           "thermal_relief_gap": 0.5,
           "thermal_relief_spoke_width": 0.5
         }
       },
-      "diff_pair_dimensions": [
-        {
-          "gap": 0.0,
-          "via_gap": 0.0,
-          "width": 0.0
-        }
-      ],
+      "diff_pair_dimensions": [],
       "drc_exclusions": [],
       "meta": {
         "version": 2
@@ -125,7 +119,7 @@
         "silk_overlap": "warning",
         "skew_out_of_range": "error",
         "solder_mask_bridge": "error",
-        "starved_thermal": "warning",
+        "starved_thermal": "error",
         "text_height": "warning",
         "text_on_edge_cuts": "error",
         "text_thickness": "warning",
@@ -209,12 +203,7 @@
           "td_width_to_size_filter_ratio": 0.9
         }
       ],
-      "track_widths": [
-        0.0,
-        0.1,
-        0.2,
-        0.5
-      ],
+      "track_widths": [],
       "tuning_pattern_settings": {
         "diff_pair_defaults": {
           "corner_radius_percentage": 80,
@@ -241,12 +230,7 @@
           "spacing": 0.6
         }
       },
-      "via_dimensions": [
-        {
-          "diameter": 0.0,
-          "drill": 0.0
-        }
-      ],
+      "via_dimensions": [],
       "zones_allow_external_fillets": false
     },
     "ipc2581": {
@@ -504,7 +488,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "p2000m-cpm-coboard.kicad_pro",
+    "filename": "connector.kicad_pro",
     "version": 3
   },
   "net_settings": {
@@ -538,14 +522,10 @@
   },
   "pcbnew": {
     "last_paths": {
-      "gencad": "",
       "idf": "",
       "netlist": "",
       "plot": "GERBERS/",
-      "pos_files": "",
-      "specctra_dsn": "p2000m-cpm-coboard.dsn",
-      "step": "",
-      "svg": "",
+      "specctra_dsn": "connector.dsn",
       "vrml": ""
     },
     "page_layout_descr_file": ""
@@ -609,18 +589,6 @@
         },
         {
           "group_by": true,
-          "label": "Exclude from Simulation",
-          "name": "${EXCLUDE_FROM_SIM}",
-          "show": true
-        },
-        {
-          "group_by": true,
-          "label": "Exclude from Position Files",
-          "name": "${EXCLUDE_FROM_POS_FILES}",
-          "show": true
-        },
-        {
-          "group_by": true,
           "label": "Footprint",
           "name": "Footprint",
           "show": true
@@ -630,24 +598,12 @@
           "label": "Datasheet",
           "name": "Datasheet",
           "show": true
-        },
-        {
-          "group_by": false,
-          "label": "#",
-          "name": "${ITEM_NUMBER}",
-          "show": false
-        },
-        {
-          "group_by": false,
-          "label": "Description",
-          "name": "Description",
-          "show": false
         }
       ],
       "filter_string": "",
       "group_symbols": true,
       "include_excluded_from_bom": true,
-      "name": "",
+      "name": "Default Editing",
       "sort_asc": true,
       "sort_field": "Reference"
     },
@@ -687,18 +643,18 @@
     "subpart_id_separator": 0,
     "top_level_sheets": [
       {
-        "filename": "p2000m-cpm-coboard.kicad_sch",
-        "name": "p2000m-cpm-coboard",
-        "uuid": "6fd0ac56-88c2-4ff6-8529-422939feb5ef"
+        "filename": "connector.kicad_sch",
+        "name": "Root",
+        "uuid": "b57b17e3-0ab4-4b78-b7dd-508fadfdbc43"
       }
     ],
-    "used_designators": "",
+    "used_designators": "#PWR33-34,J1-2",
     "variants": []
   },
   "sheets": [
     [
-      "6fd0ac56-88c2-4ff6-8529-422939feb5ef",
-      "p2000m-cpm-coboard"
+      "b57b17e3-0ab4-4b78-b7dd-508fadfdbc43",
+      "Root"
     ]
   ],
   "text_variables": {},

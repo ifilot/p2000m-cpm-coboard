@@ -1,0 +1,47 @@
+
+(rules PCB connector.dsn
+  (snap_angle 
+    fortyfive_degree
+  )
+  (rule
+    (width 200.0)
+    (clearance 200.0)
+    (clearance 100.0 (type smd_to_turn_gap))
+    (clearance 50.0 (type smd))
+    (clearance 500.0 (type "board_edge"))
+  )
+  (padstack "Via[0-1]_600:300_um"
+    (shape
+      (circle F.Cu 600.0 0.0 0.0)
+    )
+    (shape
+      (circle B.Cu 600.0 0.0 0.0)
+    )
+    (attach off)
+  )
+  (via 
+    "Via[0-1]_600:300_um" "Via[0-1]_600:300_um" default
+  )
+  (via_rule
+    default "Via[0-1]_600:300_um"
+  )
+  (via_rule
+    default "Via[0-1]_600:300_um"
+  )
+  (class default
+    ~{WR} ~{M1} D0 A6 ~{PHI2} ~{RD} ~{WAIT} A13
+    A8 A14 ~{RES} KBI20 A4 A10 A1 A9
+    D D1 A0 D5 D4 ~{PHI} D3 ~{RFSH}
+    ~{IORQ} A7 A12 A5 A11 GND ~{LOCK} "4MHz"
+    D6 A3 A2 D2 ~{MRQ} D7 ~{INT} A15
+    RA13 RA14 RA12 RA15
+    (clearance_class default)
+    (via_rule default)
+    (rule
+      (width 200.0)
+    )
+    (circuit 
+      (use_layer F.Cu B.Cu)
+    )
+  )
+)
