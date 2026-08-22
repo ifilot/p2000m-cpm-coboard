@@ -1,0 +1,140 @@
+Name     P2000M_CPM_COBOARD;
+PartNo   00;
+Date     08/21/2026;
+Revision 0.1;
+Designer Ivo Filot;
+Company  None;
+Assembly None;
+Location None;
+Device   f1502ispplcc44;
+
+PROPERTY ATMEL {POWER_RESET = OFF};
+PROPERTY ATMEL {PIN_KEEP = ON};
+PROPERTY ATMEL {PREASSIGN = KEEP};
+
+/** ------------------------------------------------------------------------**/
+/** ATF1502AS PLCC-44 pin assignment from pcb/modern-revised.               **/
+/** The JTAG pins (7, 13, 32 and 38) remain reserved by the ISP device.      **/
+/** ------------------------------------------------------------------------**/
+
+PIN  1 = RES_N;
+PIN  2 = A5;
+PIN  4 = M1_N;
+PIN  5 = WR_N;
+PIN  6 = IORQ_N;
+PIN  8 = A15;
+PIN  9 = MRQ_N;
+PIN 11 = A6;
+PIN 12 = A14;
+PIN 14 = A4;
+PIN 16 = RA12;
+PIN 17 = RA14;
+PIN 18 = RA15;
+PIN 19 = D7;
+PIN 20 = RA13;
+PIN 21 = A11;
+
+PIN 27 = P6_CARS2_N;
+PIN 28 = P7_RAMS2;
+PIN 29 = RAMS3_N;
+PIN 31 = P5_CARS1_N;
+PIN 33 = P4_ROMS2_N;
+PIN 34 = A13;
+PIN 36 = P3_ROMS1_N;
+PIN 37 = P2_VIDS_N;
+PIN 39 = P1_RAMS1;
+PIN 40 = P0_MBEN_N;
+PIN 41 = A12;
+PIN 43 = A7;
+PIN 44 = T_MODEL;
+
+/** Buried CP/M enable register. **/
+Pinnode = CPM_MODE;
+
+/** ------------------------------------------------------------------------**/
+/** CP/M mode control                                                       **/
+/**                                                                          **/
+/** A normal Z80 I/O write to any port in 0x20-0x2F latches D7. Reset       **/
+/** returns to the stock P2000 map. M1_N excludes interrupt acknowledge     **/
+/** cycles from the port strobe.                                             **/
+/** ------------------------------------------------------------------------**/
+
+CPM_WRITE = (!IORQ_N & !WR_N & M1_N & !A7 & !A6 & A5 & !A4);
+
+CPM_MODE.d  = D7;
+CPM_MODE.ck = CPM_WRITE;
+CPM_MODE.ar = !RES_N;
+
+/** ------------------------------------------------------------------------**/
+/** Stock P2000 address regions                                             **/
+/** ------------------------------------------------------------------------**/
+
+NORMAL_MONITOR = (!A15 & !A14 & !A13 & !A12);                 /** 0000-0FFF **/
+NORMAL_CART1   = (!A15 & !A14 & !A13 &  A12)                  /** 1000-1FFF **/
+               # (!A15 & !A14 &  A13 & !A12);                 /** 2000-2FFF **/
+NORMAL_CART2   = (!A15 & !A14 &  A13 &  A12)                  /** 3000-3FFF **/
+               # (!A15 &  A14 & !A13 & !A12);                 /** 4000-4FFF **/
+NORMAL_VIDEO   = (!A15 &  A14 & !A13 & A12 & !A11);           /** 5000-57FF **/
+NORMAL_RAM1    = (!A15 &  A14 &  A13)                         /** 6000-7FFF **/
+               # ( A15 & !A14 & !A13);                        /** 8000-9FFF **/
+NORMAL_RAM2    = ( A15 & (A14 # A13));                        /** A000-FFFF **/
+
+/** ------------------------------------------------------------------------**/
+/** Revised CP/M address regions                                            **/
+/** ------------------------------------------------------------------------**/
+
+CPM_RAM1  = (!A15 & !A14);                                    /** 0000-3FFF **/
+CPM_RAM2  = (!A15 &  A14)                                     /** 4000-7FFF **/
+          # ( A15 & !A14 & !A13);                             /** 8000-9FFF **/
+CPM_RAM3  = ( A15 & !A14 &  A13)                              /** A000-BFFF **/
+          # ( A15 &  A14 & !A13);                             /** C000-DFFF **/
+CPM_CART1 = ( A15 &  A14 &  A13 & !A12);                      /** E000-EFFF **/
+CPM_VIDEO = ( A15 &  A14 &  A13 &  A12);                      /** F000-FFFF **/
+
+/** The M model reaches video memory through RAMS2 at translated address 5. **/
+/** The T model additionally needs VIDS_N for its physical 2 KiB video RAM. **/
+CPM_T_VIDEO = CPM_VIDEO & T_MODEL & !A11;                      /** F000-F7FF **/
+
+/** Select the active map before applying the memory-cycle gate. **/
+SEL_MONITOR = !CPM_MODE & NORMAL_MONITOR;
+SEL_CART1   = (!CPM_MODE & NORMAL_CART1) # (CPM_MODE & CPM_CART1);
+SEL_CART2   = !CPM_MODE & NORMAL_CART2;
+SEL_VIDEO   = (!CPM_MODE & NORMAL_VIDEO) # (CPM_MODE & CPM_T_VIDEO);
+SEL_RAM1    = (!CPM_MODE & NORMAL_RAM1) # (CPM_MODE & CPM_RAM1);
+SEL_RAM2    = (!CPM_MODE & NORMAL_RAM2)
+            # (CPM_MODE & (CPM_RAM2 # CPM_VIDEO));
+SEL_RAM3    = CPM_MODE & CPM_RAM3;
+
+MEM_CYCLE = !MRQ_N;
+
+/** ------------------------------------------------------------------------**/
+/** Motherboard PROM outputs and local SRAM select                          **/
+/** ------------------------------------------------------------------------**/
+
+P0_MBEN_N  = !(MEM_CYCLE & (SEL_MONITOR # SEL_CART1 # SEL_CART2 # SEL_RAM1));
+P1_RAMS1   =  (MEM_CYCLE & SEL_RAM1);
+P2_VIDS_N  = !(MEM_CYCLE & SEL_VIDEO);
+P3_ROMS1_N = !(MEM_CYCLE & SEL_MONITOR);
+P4_ROMS2_N = 'b'1;
+P5_CARS1_N = !(MEM_CYCLE & SEL_CART1);
+P6_CARS2_N = !(MEM_CYCLE & SEL_CART2);
+P7_RAMS2   =  (MEM_CYCLE & SEL_RAM2);
+RAMS3_N    = !(MEM_CYCLE & SEL_RAM3);
+
+/** ------------------------------------------------------------------------**/
+/** Expansion-board address translation                                    **/
+/**                                                                          **/
+/** In CP/M mode the upper address nibble is increased by six modulo 16.    **/
+/** Thus CPU 4000-9FFF reaches expansion RAM A000-FFFF and CPU F000 reaches **/
+/** translated address 5000. In the stock map RA12-RA15 equal A12-A15.      **/
+/** ------------------------------------------------------------------------**/
+
+CPM_RA12 = A12;
+CPM_RA13 = !A13;
+CPM_RA14 = (A14 & A13) # (!A14 & !A13);
+CPM_RA15 = (A15 & !A14 & !A13) # (!A15 & (A14 # A13));
+
+RA12 = (!CPM_MODE & A12) # (CPM_MODE & CPM_RA12);
+RA13 = (!CPM_MODE & A13) # (CPM_MODE & CPM_RA13);
+RA14 = (!CPM_MODE & A14) # (CPM_MODE & CPM_RA14);
+RA15 = (!CPM_MODE & A15) # (CPM_MODE & CPM_RA15);

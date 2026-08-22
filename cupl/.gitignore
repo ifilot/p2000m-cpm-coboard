@@ -1,0 +1,15 @@
+# WinCUPL compiler and fitter output
+*.abs
+*.doc
+*.err
+*.fit
+*.io
+*.jed
+*.lst
+*.mx
+*.pin
+*.pla
+*.sim
+*.tt2
+*.tt3
+__pycache__/

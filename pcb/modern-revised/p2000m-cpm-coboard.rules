@@ -1,0 +1,50 @@
+
+(rules PCB p2000m-cpm-coboard.dsn
+  (snap_angle 
+    fortyfive_degree
+  )
+  (rule
+    (width 200.0)
+    (clearance 200.0)
+    (clearance 100.0 (type smd_to_turn_gap))
+    (clearance 50.0 (type smd))
+    (clearance 500.0 (type "board_edge"))
+  )
+  (padstack "Via[0-1]_600:300_um"
+    (shape
+      (circle F.Cu 600.0 0.0 0.0)
+    )
+    (shape
+      (circle B.Cu 600.0 0.0 0.0)
+    )
+    (attach off)
+  )
+  (via 
+    "Via[0-1]_600:300_um" "Via[0-1]_600:300_um" default
+  )
+  (via_rule
+    default "Via[0-1]_600:300_um"
+  )
+  (via_rule
+    default "Via[0-1]_600:300_um"
+  )
+  (class default
+    VCC GND TCK TDO TMS "unconnected-(J4-NC-Pad6)" "unconnected-(J4-NC-Pad7)" "unconnected-(J4-NC-Pad8)"
+    TDI "Net-(J3-Pin_2)" D D0 D1 D2 D3 D4
+    D5 D6 D7 A0 A1 A2 A3 A4
+    A5 A6 A7 A8 A9 A10 A11 A12
+    A13 A14 A15 ~{MRQ} ~{RD} ~{INT} ~{WR} ~{IORQ}
+    ~{WAIT} ~{M1} ~{RES} ~{LOCK} ~{RFSH} KBI20 ~{PHI} ~{PHI2}
+    "4MHz" RA12 RA13 RA14 RA15 "unconnected-(U2-NC-Pad1)" ~{RAMS3} P0
+    P1 P2 P3 P4 P5 P6 P7 "unconnected-(U3-Pad15)"
+    "unconnected-(U3-Pad16)" "unconnected-(U4-I{slash}O-Pad24)" "unconnected-(U4-I{slash}O{slash}PD2-Pad25)" "unconnected-(U4-I{slash}O-Pad26)"
+    (clearance_class default)
+    (via_rule default)
+    (rule
+      (width 200.0)
+    )
+    (circuit 
+      (use_layer F.Cu B.Cu)
+    )
+  )
+)
