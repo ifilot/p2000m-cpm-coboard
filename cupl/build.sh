@@ -1,15 +1,22 @@
 #!/usr/bin/env sh
 set -eu
 
-# Build the ATF1504AS PLCC-44 JEDEC file using WinCUPL under Wine.
+# Build the ATF1502AS PLCC-44 JEDEC file using WinCUPL under Wine.
 # Override CUPL_ROOT if WinCUPL is installed in a different Wine prefix.
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 CUPL_ROOT=${CUPL_ROOT:-${WINEPREFIX:-$HOME/.wine}/drive_c/WINCUPL}
 CUPL_EXE="$CUPL_ROOT/Shared/cupl.exe"
-FITTER_EXE="$CUPL_ROOT/WinCupl/Fitters/find1504.exe"
+FITTER_EXE="$CUPL_ROOT/WinCupl/Fitters/find1502.exe"
 SOURCE=p2000m-cpm-coboard.pld
 BASENAME=p2000m-cpm-coboard
+OUTPUT_FAST=OFF
+case "${1:-cpm}" in
+    cpm) ;;
+    stock) BASENAME=p2000m-stock-prom; SOURCE=$BASENAME.pld ;;
+    stock-fast) BASENAME=p2000m-stock-fast; SOURCE=$BASENAME.pld; OUTPUT_FAST=ON ;;
+    *) echo "Usage: $0 [cpm|stock|stock-fast]" >&2; exit 1 ;;
+esac
 
 if ! command -v wine >/dev/null 2>&1; then
     echo "Error: wine is not installed or is not in PATH." >&2
@@ -28,7 +35,7 @@ if [ ! -f "$CUPL_EXE" ]; then
 fi
 
 if [ ! -f "$FITTER_EXE" ]; then
-    echo "Error: find1504.exe not found at $FITTER_EXE" >&2
+    echo "Error: find1502.exe not found at $FITTER_EXE" >&2
     exit 1
 fi
 
@@ -49,17 +56,17 @@ export WINEPATH
 
 echo "Compiling $SOURCE..."
 wine "$CUPL_EXE" -a -l -e -x -f -b -j -m0 \
-    -n f1504ispplcc44 "$SOURCE"
+    -n f1502ispplcc44 "$SOURCE"
 
 if [ ! -f "$BASENAME.tt2" ]; then
     echo "Error: CUPL did not produce $BASENAME.tt2." >&2
     exit 1
 fi
 
-echo "Fitting ATF1504AS PLCC-44 with JTAG enabled..."
+echo "Fitting ATF1502AS PLCC-44 with JTAG enabled..."
 TT2_WIN=$(winepath -w "$SCRIPT_DIR/$BASENAME.tt2")
 wine "$FITTER_EXE" -i "$TT2_WIN" -CUPL \
-    -dev P1504C44 -str JTAG ON
+    -dev P1502C44 -str JTAG ON -str output_fast "$OUTPUT_FAST"
 
 if [ ! -f "$BASENAME.jed" ]; then
     echo "Error: the fitter did not produce $BASENAME.jed." >&2

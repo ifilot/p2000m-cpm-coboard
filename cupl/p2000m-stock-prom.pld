@@ -1,0 +1,83 @@
+Name     P2000M_STOCK_PROM;
+PartNo   00;
+Date     09/07/2026;
+Revision 1.0;
+Designer Ivo Filot;
+Company  None;
+Assembly None;
+Location None;
+Device   f1502ispplcc44;
+
+PROPERTY ATMEL {POWER_RESET = OFF};
+PROPERTY ATMEL {PIN_KEEP = ON};
+PROPERTY ATMEL {PREASSIGN = KEEP};
+
+/** ------------------------------------------------------------------------**/
+/** ATF1502AS PLCC-44 pin assignment from pcb/modern-revised.               **/
+/** The JTAG pins (7, 13, 32 and 38) remain reserved by the ISP device.      **/
+/** ------------------------------------------------------------------------**/
+
+PIN  1 = RES_N;
+PIN  2 = A5;
+PIN  4 = M1_N;
+PIN  5 = WR_N;
+PIN  6 = IORQ_N;
+PIN  8 = A15;
+PIN  9 = MRQ_N;
+PIN 11 = A6;
+PIN 12 = A14;
+PIN 14 = A4;
+PIN 16 = RA12;
+PIN 17 = RA14;
+PIN 18 = RA15;
+PIN 19 = D7;
+PIN 20 = RA13;
+PIN 21 = A11;
+
+PIN 27 = P6_CARS2_N;
+PIN 28 = P7_RAMS2;
+PIN 29 = RAMS3_N;
+PIN 31 = P5_CARS1_N;
+PIN 33 = P4_ROMS2_N;
+PIN 34 = A13;
+PIN 36 = P3_ROMS1_N;
+PIN 37 = P2_VIDS_N;
+PIN 39 = P1_RAMS1;
+PIN 40 = P0_MBEN_N;
+PIN 41 = A12;
+PIN 43 = A7;
+PIN 44 = T_MODEL;
+
+/** Stock-only diagnostic: no registers, reset dependency or I/O decoder. **/
+/** Only A11-A15 affect the PROM outputs; all other declared inputs are unused. **/
+/** Matches literature/82s123_dump_mobo.bin, including the 5000/5800 split. **/
+
+NORMAL_MONITOR = (!A15 & !A14 & !A13 & !A12);                 /** 0000-0FFF **/
+NORMAL_CART1   = (!A15 & !A14 & !A13 &  A12)                  /** 1000-1FFF **/
+               # (!A15 & !A14 &  A13 & !A12);                 /** 2000-2FFF **/
+NORMAL_CART2   = (!A15 & !A14 &  A13 &  A12)                  /** 3000-3FFF **/
+               # (!A15 &  A14 & !A13 & !A12);                 /** 4000-4FFF **/
+NORMAL_VIDEO   = (!A15 &  A14 & !A13 & A12 & !A11);           /** 5000-57FF **/
+NORMAL_RAM1    = (!A15 &  A14 &  A13)                         /** 6000-7FFF **/
+               # ( A15 & !A14 & !A13);                        /** 8000-9FFF **/
+NORMAL_RAM2    = ( A15 & (A14 # A13));                        /** A000-FFFF **/
+
+/** Original PROM outputs: no memory-cycle qualification. **/
+P0_MBEN_N  = !(NORMAL_MONITOR # NORMAL_CART1 # NORMAL_CART2 # NORMAL_RAM1);
+P1_RAMS1   = NORMAL_RAM1;
+P2_VIDS_N  = !NORMAL_VIDEO;
+P3_ROMS1_N = !NORMAL_MONITOR;
+P4_ROMS2_N = 'b'1;
+P5_CARS1_N = !NORMAL_CART1;
+P6_CARS2_N = !NORMAL_CART2;
+P7_RAMS2   = NORMAL_RAM2;
+
+/** Local SRAM is never selected, including during memory and I/O writes. **/
+RAMS3_N = 'b'1;
+
+/** Expansion/video board sees the original CPU address at all times. **/
+/** A0-A11 are direct PCB connections; only A12-A15 pass through the CPLD. **/
+RA12 = A12;
+RA13 = A13;
+RA14 = A14;
+RA15 = A15;

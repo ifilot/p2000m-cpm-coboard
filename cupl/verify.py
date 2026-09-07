@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Exhaustively check the intended ATF1502AS mapper truth tables."""
+"""Check the actual ATF1502AS CUPL equations against the mapper specification."""
 
 from __future__ import annotations
 
 import argparse
+import ast
+from itertools import product
 import re
 from pathlib import Path
 
@@ -66,160 +68,257 @@ CPM_T_P_TABLE = CPM_M_P_TABLE[:30] + bytes([0xF9, 0xFD])
 ALL_P_SELECTS_INACTIVE = 0x7D
 
 
-def bits(value: int, width: int) -> list[int]:
-    return [(value >> bit) & 1 for bit in range(width)]
+P_OUTPUTS = (
+    "P0_MBEN_N", "P1_RAMS1", "P2_VIDS_N", "P3_ROMS1_N",
+    "P4_ROMS2_N", "P5_CARS1_N", "P6_CARS2_N", "P7_RAMS2",
+)
+OUTPUTS = P_OUTPUTS + ("RAMS3_N", "RA12", "RA13", "RA14", "RA15")
+INPUTS = set(EXPECTED_PINS.values()) - set(OUTPUTS)
+CONTROLS = ("CPM_MODE.d", "CPM_MODE.ck", "CPM_MODE.ar")
 
 
-def mapper_outputs(
-    block: int, *, cpm_mode: bool, t_model: bool, mrq_n: bool
-) -> tuple[int, int]:
-    """Return the physical P7..P0 byte and RAMS3_N for one 2 KiB block."""
-    a11 = block & 1
-    page = block >> 1
-
-    normal_monitor = page == 0x0
-    normal_cart1 = page in (0x1, 0x2)
-    normal_cart2 = page in (0x3, 0x4)
-    normal_video = page == 0x5 and a11 == 0
-    normal_ram1 = 0x6 <= page <= 0x9
-    normal_ram2 = 0xA <= page <= 0xF
-
-    cpm_ram1 = 0x0 <= page <= 0x3
-    cpm_ram2 = 0x4 <= page <= 0x9
-    cpm_ram3 = 0xA <= page <= 0xD
-    cpm_cart1 = page == 0xE
-    cpm_video = page == 0xF
-    cpm_t_video = cpm_video and t_model and a11 == 0
-
-    sel_monitor = not cpm_mode and normal_monitor
-    sel_cart1 = (not cpm_mode and normal_cart1) or (cpm_mode and cpm_cart1)
-    sel_cart2 = not cpm_mode and normal_cart2
-    sel_video = (not cpm_mode and normal_video) or (cpm_mode and cpm_t_video)
-    sel_ram1 = (not cpm_mode and normal_ram1) or (cpm_mode and cpm_ram1)
-    sel_ram2 = (not cpm_mode and normal_ram2) or (
-        cpm_mode and (cpm_ram2 or cpm_video)
-    )
-    sel_ram3 = cpm_mode and cpm_ram3
-
-    memory_cycle = not mrq_n
-    p0 = int(not (memory_cycle and (sel_monitor or sel_cart1 or sel_cart2 or sel_ram1)))
-    p1 = int(memory_cycle and sel_ram1)
-    p2 = int(not (memory_cycle and sel_video))
-    p3 = int(not (memory_cycle and sel_monitor))
-    p4 = 1
-    p5 = int(not (memory_cycle and sel_cart1))
-    p6 = int(not (memory_cycle and sel_cart2))
-    p7 = int(memory_cycle and sel_ram2)
-    rams3_n = int(not (memory_cycle and sel_ram3))
-
-    p_byte = sum(bit << index for index, bit in enumerate((p0, p1, p2, p3, p4, p5, p6, p7)))
-    return p_byte, rams3_n
+def require(condition: bool, message: str) -> None:
+    # Keep verification active even when Python is invoked with -O.
+    if not condition:
+        raise ValueError(message)
 
 
-def translated_page(page: int, cpm_mode: bool) -> int:
-    return (page + 6) & 0xF if cpm_mode else page
+class Source:
+    """Evaluate this project's scalar CUPL subset, rejecting unsupported syntax.
+
+    Supports !, &, #, parentheses and binary constants. This is a functional
+    source checker, not a CUPL compiler or a propagation-delay simulator.
+    """
+
+    def __init__(self, source: str, *, stock: bool = False):
+        source = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+        self.equations = {}
+        pins = {}
+        headers = {}
+        properties = {}
+        nodes = []
+        for statement in source.split(";"):
+            statement = " ".join(statement.split())
+            if not statement:
+                continue
+            pin = re.fullmatch(r"PIN (\d+) = ([A-Z][A-Z0-9_]*)", statement)
+            header = re.fullmatch(
+                r"(Name|PartNo|Date|Revision|Designer|Company|Assembly|Location|Device) (.+)",
+                statement,
+            )
+            prop = re.fullmatch(r"PROPERTY ATMEL \{(\w+) = (\w+)\}", statement)
+            if pin:
+                number, name = int(pin[1]), pin[2]
+                require(number not in pins, f"Duplicate pin {number}")
+                pins[number] = name
+            elif header:
+                require(header[1] not in headers, f"Duplicate header {header[1]}")
+                headers[header[1]] = header[2]
+            elif prop:
+                require(prop[1] not in properties, f"Duplicate property {prop[1]}")
+                properties[prop[1]] = prop[2]
+            elif statement == "Pinnode = CPM_MODE":
+                nodes.append("CPM_MODE")
+            else:
+                equation = re.fullmatch(r"([A-Z][A-Z0-9_]*(?:\.[a-z]+)?) = (.+)", statement)
+                require(equation is not None, f"Unsupported CUPL statement: {statement}")
+                name, expression = equation[1], equation[2]
+                require(name not in self.equations, f"Duplicate equation {name}")
+                require(name not in INPUTS | {"CPM_MODE"}, f"Cannot drive input/state {name}")
+                require("." not in name or (not stock and name in CONTROLS),
+                        f"Unsupported control {name}")
+                expression = re.sub(r"'b'([01])", r"\1", expression)
+                require(re.fullmatch(r"[A-Z0-9_!&#()\s]+", expression) is not None,
+                        f"Unsupported expression for {name}: {expression}")
+                tree = ast.parse(expression.replace("!", "~").replace("#", "|"), mode="eval")
+                allowed = (ast.Expression, ast.BinOp, ast.UnaryOp, ast.Name,
+                           ast.Load, ast.Constant, ast.BitAnd, ast.BitOr, ast.Invert)
+                for node in ast.walk(tree):
+                    require(isinstance(node, allowed), f"Unsupported operator in {name}")
+                    if isinstance(node, ast.Constant):
+                        require(type(node.value) is int and node.value in (0, 1),
+                                f"Non-binary constant in {name}")
+                dependencies = {node.id for node in ast.walk(tree) if isinstance(node, ast.Name)}
+                self.equations[name] = (compile(tree, f"<CUPL {name}>", "eval"), dependencies)
+
+        require(headers.get("Device") == "f1502ispplcc44", "Expected ATF1502AS PLCC-44 device")
+        require(pins == EXPECTED_PINS, "Source pin assignments differ from board pinout")
+        require(nodes == ([] if stock else ["CPM_MODE"]),
+                "Expected no registers" if stock else "Expected exactly one CPM_MODE register")
+        require(properties == {"POWER_RESET": "OFF", "PIN_KEEP": "ON", "PREASSIGN": "KEEP"},
+                "Unsupported fitter properties; review verification assumptions")
+        require(set(OUTPUTS + (() if stock else CONTROLS)) <= self.equations.keys(),
+                "Missing output/register equation")
+        # Resolve a dependency order once; detect undefined signals and feedback loops.
+        self.order = []
+        visiting = set()
+        done = INPUTS | (set() if stock else {"CPM_MODE"})
+
+        def visit(name):
+            if name in done:
+                return
+            require(name in self.equations, f"Undefined signal {name}")
+            require(name not in visiting, f"Combinational feedback at {name}")
+            visiting.add(name)
+            for dependency in self.equations[name][1]:
+                visit(dependency)
+            visiting.remove(name)
+            done.add(name)
+            self.order.append(name)
+
+        for name in self.equations:
+            visit(name)
+
+        # The truth-table sweeps vary only the relevant inputs. Reject new
+        # dependencies outside those sweeps rather than silently testing them
+        # at a single default value (for example, a decode depending on D7).
+        leaves = {name: {name} for name in INPUTS | {"CPM_MODE"}}
+        for name in self.order:
+            leaves[name] = set().union(*(leaves[dep] for dep in self.equations[name][1]))
+        memory_inputs = {"CPM_MODE", "T_MODEL", "MRQ_N"} | {
+            f"A{bit}" for bit in range(11, 16)
+        }
+        covered_inputs = {name: memory_inputs for name in OUTPUTS}
+        covered_inputs.update({
+            "CPM_MODE.ck": {"A4", "A5", "A6", "A7", "IORQ_N", "WR_N", "M1_N",
+                            "D7", "RES_N", "CPM_MODE"},
+            "CPM_MODE.d": {"D7"},
+            "CPM_MODE.ar": {"RES_N"},
+        })
+        if stock:
+            covered_inputs = {name: {f"A{bit}" for bit in range(11, 16)} for name in OUTPUTS}
+        for name, covered in covered_inputs.items():
+            uncovered = leaves[name] - covered
+            require(not uncovered, f"Untested input dependencies for {name}: {sorted(uncovered)}")
+
+    def evaluate(self, inputs: dict[str, int], mode: int) -> dict[str, int]:
+        require(inputs.keys() == INPUTS, "Missing or unexpected input signals")
+        values = dict(inputs, CPM_MODE=mode)
+        for name in self.order:
+            # Whitelisted AST only; bit zero implements scalar CUPL complement.
+            values[name] = eval(self.equations[name][0], {"__builtins__": {}}, values) & 1
+        return values
+
+    def step(self, inputs: dict[str, int], mode: int, previous_clock: int) -> tuple[int, int]:
+        values = self.evaluate(inputs, mode)
+        clock = values["CPM_MODE.ck"]
+        if values["CPM_MODE.ar"]:
+            mode = 0
+        elif clock and not previous_clock:
+            mode = values["CPM_MODE.d"]
+        return mode, clock
 
 
-def is_cpm_write(port: int, *, iorq_n: bool, wr_n: bool, m1_n: bool) -> bool:
-    return not iorq_n and not wr_n and m1_n and (port & 0xF0) == 0x20
+def inputs_for(address: int = 0, **overrides: int) -> dict[str, int]:
+    inputs = {name: 0 for name in INPUTS}
+    inputs.update(RES_N=1, M1_N=1, WR_N=1, IORQ_N=1, MRQ_N=1)
+    for bit in (4, 5, 6, 7, 11, 12, 13, 14, 15):
+        inputs[f"A{bit}"] = (address >> bit) & 1
+    inputs.update(overrides)
+    return inputs
 
 
-def read_source_pins() -> dict[int, str]:
-    source = PLD_PATH.read_text(encoding="ascii")
-    device = re.search(r"^Device\s+([^;]+);", source, flags=re.MULTILINE)
-    assert device is not None and device.group(1).strip() == "f1502ispplcc44"
-    return {
-        int(number): name
-        for number, name in re.findall(
-            r"^PIN\s+(\d+)\s*=\s*([A-Z0-9_]+)\s*;",
-            source,
-            flags=re.MULTILINE,
-        )
-    }
+def output_byte(values: dict[str, int]) -> int:
+    return sum(values[name] << bit for bit, name in enumerate(P_OUTPUTS))
 
 
-def verify() -> None:
-    assert read_source_pins() == EXPECTED_PINS
+def verify(model: Source) -> None:
+    for block, mode, t_model, mrq in product(range(32), range(2), range(2), range(2)):
+        values = model.evaluate(inputs_for(block << 11, T_MODEL=t_model, MRQ_N=mrq), mode)
+        table = (CPM_T_P_TABLE if t_model else CPM_M_P_TABLE) if mode else NORMAL_P_TABLE
+        expected = ALL_P_SELECTS_INACTIVE if mode and mrq else table[block]
+        context = f"block={block:02X}, CPM={mode}, T={t_model}, /MRQ={mrq}"
+        require(output_byte(values) == expected, f"P7..P0 mismatch: {context}")
+        require(values["RAMS3_N"] == int(not (mode and not mrq and 20 <= block <= 27)),
+                f"/RAMS3 mismatch: {context}")
+        translated = sum(values[f"RA{bit}"] << (bit - 12) for bit in range(12, 16))
+        require(translated == ((block // 2 + 6 * mode) & 15), f"Translation mismatch: {context}")
 
-    normal = bytes(
-        mapper_outputs(block, cpm_mode=False, t_model=False, mrq_n=False)[0]
-        for block in range(32)
-    )
-    assert normal == NORMAL_P_TABLE
+    # Exhaust all control levels, both data values and both prior register states.
+    for port, iorq, wr, m1, data, reset, mode in product(range(256), *([range(2)] * 6)):
+        inputs = inputs_for(port, IORQ_N=iorq, WR_N=wr, M1_N=m1, D7=data, RES_N=reset)
+        values = model.evaluate(inputs, mode)
+        strobe = int(not iorq and not wr and m1 and 0x20 <= port <= 0x2F)
+        context = f"port={port:02X}, /IORQ={iorq}, /WR={wr}, /M1={m1}, D7={data}, /RES={reset}, CPM={mode}"
+        require(values["CPM_MODE.ck"] == strobe, f"Clock mismatch: {context}")
+        require(values["CPM_MODE.d"] == data, f"Register data mismatch: {context}")
+        require(values["CPM_MODE.ar"] == 1 - reset, f"Reset mismatch: {context}")
+        for previous_clock in (0, 1):
+            expected = 0 if not reset else data if strobe and not previous_clock else mode
+            actual, clock = model.step(inputs, mode, previous_clock)
+            require((actual, clock) == (expected, strobe), f"Register transition mismatch: {context}")
 
-    cpm_m = bytes(
-        mapper_outputs(block, cpm_mode=True, t_model=False, mrq_n=False)[0]
-        for block in range(32)
-    )
-    assert cpm_m == CPM_M_P_TABLE
+    # A complete write pulse: capture at assertion, hold through data changes
+    # and deassertion, reset asynchronously, and write again after reset.
+    mode, clock = 0, 0
+    sequence = [
+        ({}, 0),
+        ({"IORQ_N": 0, "WR_N": 0, "D7": 1}, 1),
+        ({"IORQ_N": 0, "WR_N": 0, "D7": 0}, 1),
+        ({}, 1),
+        ({"RES_N": 0}, 0),
+        ({}, 0),
+        ({"IORQ_N": 0, "WR_N": 0, "D7": 1}, 1),
+        ({}, 1),
+        ({"IORQ_N": 0, "WR_N": 0, "D7": 0}, 0),
+    ]
+    for overrides, expected in sequence:
+        mode, clock = model.step(inputs_for(0x20, **overrides), mode, clock)
+        require(mode == expected, "Write/reset sequence mismatch")
 
-    cpm_t = bytes(
-        mapper_outputs(block, cpm_mode=True, t_model=True, mrq_n=False)[0]
-        for block in range(32)
-    )
-    assert cpm_t == CPM_T_P_TABLE
 
+def verify_stock(model: Source) -> None:
+    """Compare the stock-only logic to the physical PROM dump, with no state."""
+    dump = (PLD_PATH.parent.parent / "literature/82s123_dump_mobo.bin").read_bytes()
+    require(len(dump) == 32, "Expected a 32-byte original PROM dump")
+    # Source(stock=True) excludes any dependence on non-address inputs.
     for block in range(32):
-        _, normal_rams3_n = mapper_outputs(
-            block, cpm_mode=False, t_model=False, mrq_n=False
-        )
-        _, cpm_rams3_n = mapper_outputs(
-            block, cpm_mode=True, t_model=False, mrq_n=False
-        )
-        assert normal_rams3_n == 1
-        assert cpm_rams3_n == int(not (20 <= block <= 27))
+        values = model.evaluate(inputs_for(block << 11), 0)
+        require(output_byte(values) == dump[block], f"Stock PROM mismatch at block {block:02X}")
+        require(values["RAMS3_N"] == 1, "Stock SRAM must always be disabled")
+        for bit in range(12, 16):
+            require(values[f"RA{bit}"] == ((block << 11) >> bit) & 1,
+                    f"Stock address pass-through mismatch: RA{bit}, block {block:02X}")
 
-        for cpm_mode in (False, True):
-            for t_model in (False, True):
-                p_byte, rams3_n = mapper_outputs(
-                    block,
-                    cpm_mode=cpm_mode,
-                    t_model=t_model,
-                    mrq_n=True,
-                )
-                assert p_byte == ALL_P_SELECTS_INACTIVE
-                assert rams3_n == 1
 
+def dump_tables(model: Source) -> None:
+    for title, mode, t_model in (("Normal", 0, 0), ("CP/M P2000M", 1, 0), ("CP/M P2000T", 1, 1)):
+        print(f"{title} P7..P0:")
+        data = [output_byte(model.evaluate(inputs_for(block << 11, T_MODEL=t_model, MRQ_N=0), mode))
+                for block in range(32)]
+        for offset in range(0, 32, 8):
+            print(" ".join(f"{value:02X}" for value in data[offset:offset + 8]))
+    print("CP/M upper-nibble translation:")
+    translations = []
     for page in range(16):
-        assert translated_page(page, False) == page
-        assert translated_page(page, True) == (page + 6) & 0xF
-
-    for port in range(256):
-        assert is_cpm_write(port, iorq_n=False, wr_n=False, m1_n=True) == (
-            0x20 <= port <= 0x2F
-        )
-        assert not is_cpm_write(port, iorq_n=True, wr_n=False, m1_n=True)
-        assert not is_cpm_write(port, iorq_n=False, wr_n=True, m1_n=True)
-        assert not is_cpm_write(port, iorq_n=False, wr_n=False, m1_n=False)
-
-
-def format_table(data: bytes) -> str:
-    return "\n".join(
-        " ".join(f"{value:02X}" for value in data[offset : offset + 8])
-        for offset in range(0, len(data), 8)
-    )
-
-
-def dump_tables() -> None:
-    print("Normal P7..P0:")
-    print(format_table(NORMAL_P_TABLE))
-    print("\nCP/M P2000M P7..P0:")
-    print(format_table(CPM_M_P_TABLE))
-    print("\nCP/M P2000T P7..P0:")
-    print(format_table(CPM_T_P_TABLE))
-    print("\nCP/M upper-nibble translation:")
-    print(" ".join(f"{page:X}->{translated_page(page, True):X}" for page in range(16)))
+        values = model.evaluate(inputs_for(page << 12), 1)
+        translated = sum(values[f"RA{bit}"] << (bit - 12) for bit in range(12, 16))
+        translations.append(f"{page:X}->{translated:X}")
+    print(" ".join(translations))
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dump", action="store_true", help="print the verified tables")
+    parser.add_argument("--dump", action="store_true", help="print the verified source tables")
+    parser.add_argument("--source", type=Path, help="CUPL source to verify")
+    parser.add_argument("--stock", action="store_true", help="verify the separate stock-only PROM image")
     args = parser.parse_args()
-
-    verify()
-    print("CUPL pinout and mapper truth tables verified.")
+    try:
+        path = args.source or (PLD_PATH.with_name("p2000m-stock-prom.pld") if args.stock else PLD_PATH)
+        model = Source(path.read_text(encoding="ascii"), stock=args.stock)
+        (verify_stock if args.stock else verify)(model)
+    except (ValueError, SyntaxError, OSError) as error:
+        parser.exit(1, f"Verification failed: {error}\n")
+    if args.stock:
+        print("Stock CUPL verified: original PROM dump, SRAM disabled, address pass-through, no registers.")
+    else:
+        print("CUPL source verified: pinout, 256 map cases, 16384 control cases and register transitions.")
     if args.dump:
-        dump_tables()
+        if args.stock:
+            print(" ".join(f"{output_byte(model.evaluate(inputs_for(block << 11), 0)):02X}"
+                           for block in range(32)))
+        else:
+            dump_tables(model)
 
 
 if __name__ == "__main__":

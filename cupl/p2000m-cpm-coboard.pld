@@ -1,7 +1,7 @@
 Name     P2000M_CPM_COBOARD;
 PartNo   00;
 Date     08/21/2026;
-Revision 0.1;
+Revision 0.2;
 Designer Ivo Filot;
 Company  None;
 Assembly None;
@@ -95,7 +95,7 @@ CPM_VIDEO = ( A15 &  A14 &  A13 &  A12);                      /** F000-FFFF **/
 /** The T model additionally needs VIDS_N for its physical 2 KiB video RAM. **/
 CPM_T_VIDEO = CPM_VIDEO & T_MODEL & !A11;                      /** F000-F7FF **/
 
-/** Select the active map before applying the memory-cycle gate. **/
+/** Select the active map. Stock PROM outputs are address-only. **/
 SEL_MONITOR = !CPM_MODE & NORMAL_MONITOR;
 SEL_CART1   = (!CPM_MODE & NORMAL_CART1) # (CPM_MODE & CPM_CART1);
 SEL_CART2   = !CPM_MODE & NORMAL_CART2;
@@ -106,19 +106,21 @@ SEL_RAM2    = (!CPM_MODE & NORMAL_RAM2)
 SEL_RAM3    = CPM_MODE & CPM_RAM3;
 
 MEM_CYCLE = !MRQ_N;
+/** Gate motherboard selects only in CP/M mode, preserving stock timing. **/
+PROM_ENABLE = !CPM_MODE # MEM_CYCLE;
 
 /** ------------------------------------------------------------------------**/
 /** Motherboard PROM outputs and local SRAM select                          **/
 /** ------------------------------------------------------------------------**/
 
-P0_MBEN_N  = !(MEM_CYCLE & (SEL_MONITOR # SEL_CART1 # SEL_CART2 # SEL_RAM1));
-P1_RAMS1   =  (MEM_CYCLE & SEL_RAM1);
-P2_VIDS_N  = !(MEM_CYCLE & SEL_VIDEO);
-P3_ROMS1_N = !(MEM_CYCLE & SEL_MONITOR);
+P0_MBEN_N  = !(PROM_ENABLE & (SEL_MONITOR # SEL_CART1 # SEL_CART2 # SEL_RAM1));
+P1_RAMS1   =  (PROM_ENABLE & SEL_RAM1);
+P2_VIDS_N  = !(PROM_ENABLE & SEL_VIDEO);
+P3_ROMS1_N = !(PROM_ENABLE & SEL_MONITOR);
 P4_ROMS2_N = 'b'1;
-P5_CARS1_N = !(MEM_CYCLE & SEL_CART1);
-P6_CARS2_N = !(MEM_CYCLE & SEL_CART2);
-P7_RAMS2   =  (MEM_CYCLE & SEL_RAM2);
+P5_CARS1_N = !(PROM_ENABLE & SEL_CART1);
+P6_CARS2_N = !(PROM_ENABLE & SEL_CART2);
+P7_RAMS2   =  (PROM_ENABLE & SEL_RAM2);
 RAMS3_N    = !(MEM_CYCLE & SEL_RAM3);
 
 /** ------------------------------------------------------------------------**/
