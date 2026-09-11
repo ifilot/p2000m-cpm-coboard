@@ -1,7 +1,7 @@
 Name     P2000M_STOCK_FAST;
 PartNo   00;
 Date     09/07/2026;
-Revision 1.0;
+Revision 1.1;
 Designer Ivo Filot;
 Company  None;
 Assembly None;
@@ -15,41 +15,42 @@ PROPERTY ATMEL {PREASSIGN = KEEP};
 /** The wrapper sets output_fast ON explicitly on the final fitter command. **/
 
 /** ------------------------------------------------------------------------**/
-/** ATF1502AS PLCC-44 pin assignment from pcb/modern-revised.               **/
+/** ATF1502AS PLCC-44 assignment optimized for pcb/modern-revised.          **/
 /** The JTAG pins (7, 13, 32 and 38) remain reserved by the ISP device.      **/
 /** ------------------------------------------------------------------------**/
 
 PIN  1 = RES_N;
-PIN  2 = A5;
-PIN  4 = M1_N;
-PIN  5 = WR_N;
-PIN  6 = IORQ_N;
-PIN  8 = A15;
-PIN  9 = MRQ_N;
-PIN 11 = A6;
-PIN 12 = A14;
-PIN 14 = A4;
-PIN 16 = RA12;
-PIN 17 = RA14;
-PIN 18 = RA15;
-PIN 19 = D7;
-PIN 20 = RA13;
-PIN 21 = A11;
-
-PIN 27 = P6_CARS2_N;
-PIN 28 = P7_RAMS2;
-PIN 29 = RAMS3_N;
-PIN 31 = P5_CARS1_N;
-PIN 33 = P4_ROMS2_N;
-PIN 34 = A13;
-PIN 36 = P3_ROMS1_N;
-PIN 37 = P2_VIDS_N;
+PIN  2 = IORQ_N;
+PIN  4 = P4_ROMS2_N;
+PIN  5 = RA14;
+PIN  6 = RA13;
+PIN  8 = RA12;
+PIN 12 = A12;
+PIN 14 = WR_N;
+PIN 16 = A13;
+PIN 18 = T_MODEL;
+PIN 19 = RAMS3_N;
+PIN 20 = D7;
+PIN 21 = A4;
+PIN 24 = A5;
+PIN 25 = A6;
+PIN 26 = A7;
+PIN 27 = A14;
+PIN 28 = A11;
+PIN 29 = RA15; /** Legacy net name: J2 pin 26 is RAMS2, not A15. **/
+PIN 31 = MRQ_N;
+PIN 33 = P7_RAMS2;
+PIN 34 = P6_CARS2_N;
+PIN 36 = P5_CARS1_N;
+PIN 37 = P3_ROMS1_N;
 PIN 39 = P1_RAMS1;
 PIN 40 = P0_MBEN_N;
-PIN 41 = A12;
-PIN 43 = A7;
-PIN 44 = T_MODEL;
+PIN 41 = P2_VIDS_N;
+PIN 43 = M1_N;
+PIN 44 = A15;
 
+/** Legacy logic: pin numbers follow the optimized schematic. **/
+/** A14_RAM=11, A15_RAM=17, A16_RAM=9 are not implemented here. **/
 /** Stock-only diagnostic: no registers, reset dependency or I/O decoder. **/
 /** Only A11-A15 affect the PROM outputs; all other declared inputs are unused. **/
 /** Matches literature/82s123_dump_mobo.bin, including the 5000/5800 split. **/
@@ -77,9 +78,10 @@ P7_RAMS2   = NORMAL_RAM2;
 /** Local SRAM is never selected, including during memory and I/O writes. **/
 RAMS3_N = 'b'1;
 
-/** Expansion/video board sees the original CPU address at all times. **/
-/** A0-A11 are direct PCB connections; only A12-A15 pass through the CPLD. **/
+/** REQUIRES J1 pin 26 isolated from A15; real A15 enters via U3 pin 14. **/
+/** A0-A11 are direct; RA12-RA14 pass the remaining expansion address bits. **/
+/** Expansion pin 26 carries RAMS2, not an address bit. **/
 RA12 = A12;
 RA13 = A13;
 RA14 = A14;
-RA15 = A15;
+RA15 = P7_RAMS2;

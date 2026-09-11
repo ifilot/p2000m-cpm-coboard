@@ -1,3 +1,6 @@
+> Historical analysis: some mapping assumptions below were superseded by
+> hardware testing. Use the current CUPL and root README for the working setup.
+
 # SANECAL MW106 M-model mapping
 
 PROM encoding as printed in MW106:

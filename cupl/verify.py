@@ -14,34 +14,34 @@ PLD_PATH = Path(__file__).with_name("p2000m-cpm-coboard.pld")
 
 EXPECTED_PINS = {
     1: "RES_N",
-    2: "A5",
-    4: "M1_N",
-    5: "WR_N",
-    6: "IORQ_N",
-    8: "A15",
-    9: "MRQ_N",
-    11: "A6",
-    12: "A14",
-    14: "A4",
-    16: "RA12",
-    17: "RA14",
-    18: "RA15",
-    19: "D7",
-    20: "RA13",
-    21: "A11",
-    27: "P6_CARS2_N",
-    28: "P7_RAMS2",
-    29: "RAMS3_N",
-    31: "P5_CARS1_N",
-    33: "P4_ROMS2_N",
-    34: "A13",
-    36: "P3_ROMS1_N",
-    37: "P2_VIDS_N",
+    2: "IORQ_N",
+    4: "P4_ROMS2_N",
+    5: "RA14",
+    6: "RA13",
+    8: "RA12",
+    12: "A12",
+    14: "WR_N",
+    16: "A13",
+    18: "T_MODEL",
+    19: "RAMS3_N",
+    20: "D7",
+    21: "A4",
+    24: "A5",
+    25: "A6",
+    26: "A7",
+    27: "A14",
+    28: "A11",
+    29: "RA15",
+    31: "MRQ_N",
+    33: "P7_RAMS2",
+    34: "P6_CARS2_N",
+    36: "P5_CARS1_N",
+    37: "P3_ROMS1_N",
     39: "P1_RAMS1",
     40: "P0_MBEN_N",
-    41: "A12",
-    43: "A7",
-    44: "T_MODEL",
+    41: "P2_VIDS_N",
+    43: "M1_N",
+    44: "A15",
 }
 
 NORMAL_P_TABLE = bytes.fromhex(
@@ -60,11 +60,10 @@ CPM_M_P_TABLE = bytes.fromhex(
     7E 7E 7E 7E  7E 7E 7E 7E
     FD FD FD FD  FD FD FD FD
     FD FD FD FD  7D 7D 7D 7D
-    7D 7D 7D 7D  5C 5C FD FD
+    7D 7D 7D 7D  5C 5C 7D 7D
     """
 )
 
-CPM_T_P_TABLE = CPM_M_P_TABLE[:30] + bytes([0xF9, 0xFD])
 ALL_P_SELECTS_INACTIVE = 0x7D
 
 
@@ -175,7 +174,7 @@ class Source:
         leaves = {name: {name} for name in INPUTS | {"CPM_MODE"}}
         for name in self.order:
             leaves[name] = set().union(*(leaves[dep] for dep in self.equations[name][1]))
-        memory_inputs = {"CPM_MODE", "T_MODEL", "MRQ_N"} | {
+        memory_inputs = {"CPM_MODE", "MRQ_N"} | {
             f"A{bit}" for bit in range(11, 16)
         }
         covered_inputs = {name: memory_inputs for name in OUTPUTS}
@@ -225,14 +224,16 @@ def output_byte(values: dict[str, int]) -> int:
 def verify(model: Source) -> None:
     for block, mode, t_model, mrq in product(range(32), range(2), range(2), range(2)):
         values = model.evaluate(inputs_for(block << 11, T_MODEL=t_model, MRQ_N=mrq), mode)
-        table = (CPM_T_P_TABLE if t_model else CPM_M_P_TABLE) if mode else NORMAL_P_TABLE
+        table = CPM_M_P_TABLE if mode else NORMAL_P_TABLE
         expected = ALL_P_SELECTS_INACTIVE if mode and mrq else table[block]
         context = f"block={block:02X}, CPM={mode}, T={t_model}, /MRQ={mrq}"
         require(output_byte(values) == expected, f"P7..P0 mismatch: {context}")
         require(values["RAMS3_N"] == int(not (mode and not mrq and 20 <= block <= 27)),
                 f"/RAMS3 mismatch: {context}")
-        translated = sum(values[f"RA{bit}"] << (bit - 12) for bit in range(12, 16))
-        require(translated == ((block // 2 + 6 * mode) & 15), f"Translation mismatch: {context}")
+        require(values["RA15"] == ((expected >> 7) & 1),
+                f"Expansion RAMS2 mismatch: {context}")
+        translated = sum(values[f"RA{bit}"] << (bit - 12) for bit in range(12, 15))
+        require(translated == ((block // 2 + 6 * mode) & 7), f"Translation mismatch: {context}")
 
     # Exhaust all control levels, both data values and both prior register states.
     for port, iorq, wr, m1, data, reset, mode in product(range(256), *([range(2)] * 6)):
@@ -276,23 +277,25 @@ def verify_stock(model: Source) -> None:
         values = model.evaluate(inputs_for(block << 11), 0)
         require(output_byte(values) == dump[block], f"Stock PROM mismatch at block {block:02X}")
         require(values["RAMS3_N"] == 1, "Stock SRAM must always be disabled")
-        for bit in range(12, 16):
+        require(values["RA15"] == ((dump[block] >> 7) & 1),
+                f"Stock expansion RAMS2 mismatch at block {block:02X}")
+        for bit in range(12, 15):
             require(values[f"RA{bit}"] == ((block << 11) >> bit) & 1,
                     f"Stock address pass-through mismatch: RA{bit}, block {block:02X}")
 
 
 def dump_tables(model: Source) -> None:
-    for title, mode, t_model in (("Normal", 0, 0), ("CP/M P2000M", 1, 0), ("CP/M P2000T", 1, 1)):
+    for title, mode, t_model in (("Normal", 0, 0), ("CP/M P2000M", 1, 0)):
         print(f"{title} P7..P0:")
         data = [output_byte(model.evaluate(inputs_for(block << 11, T_MODEL=t_model, MRQ_N=0), mode))
                 for block in range(32)]
         for offset in range(0, 32, 8):
             print(" ".join(f"{value:02X}" for value in data[offset:offset + 8]))
-    print("CP/M upper-nibble translation:")
+    print("CP/M expansion A14..A12 translation (pin 26 separately carries RAMS2):")
     translations = []
     for page in range(16):
         values = model.evaluate(inputs_for(page << 12), 1)
-        translated = sum(values[f"RA{bit}"] << (bit - 12) for bit in range(12, 16))
+        translated = sum(values[f"RA{bit}"] << (bit - 12) for bit in range(12, 15))
         translations.append(f"{page:X}->{translated:X}")
     print(" ".join(translations))
 
@@ -310,7 +313,7 @@ def main() -> None:
     except (ValueError, SyntaxError, OSError) as error:
         parser.exit(1, f"Verification failed: {error}\n")
     if args.stock:
-        print("Stock CUPL verified: original PROM dump, SRAM disabled, address pass-through, no registers.")
+        print("Stock CUPL verified: original PROM dump, SRAM disabled, A12-A14 pass-through, pin 26 RAMS2, no registers.")
     else:
         print("CUPL source verified: pinout, 256 map cases, 16384 control cases and register transitions.")
     if args.dump:

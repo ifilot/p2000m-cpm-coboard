@@ -18,6 +18,12 @@ class SourceVerificationTests(unittest.TestCase):
         self.assertIn(old, self.source)
         return self.source.replace(old, new, 1)
 
+    def test_video_window_rejects_expansion_ram_select(self):
+        broken = self.mutate("# (CPM_MODE & CPM_RAM2);",
+                             "# (CPM_MODE & (CPM_RAM2 # CPM_VIDEO));")
+        with self.assertRaisesRegex(ValueError, "P7..P0 mismatch"):
+            verify(Source(broken))
+
     def test_current_design(self):
         verify(Source(self.source))
 
@@ -26,6 +32,7 @@ class SourceVerificationTests(unittest.TestCase):
         verify_stock(Source(source, stock=True))
         for old, new in (("RAMS3_N = 'b'1;", "RAMS3_N = 'b'0;"),
                          ("RA13 = A13;", "RA13 = !A13;"),
+                         ("RA15 = P7_RAMS2;", "RA15 = A15;"),
                          ("P3_ROMS1_N = !NORMAL_MONITOR;", "P3_ROMS1_N = 'b'1;"),
                          ("RA12 = A12;", "RA12 = A12 & MRQ_N;"),
                          ("RA12 = A12;", "RA12 = A12 # CPM_MODE;")):
@@ -45,6 +52,7 @@ class SourceVerificationTests(unittest.TestCase):
 
     def test_hardware_faults_are_detected(self):
         faults = (
+            ("RA15 = P7_RAMS2;", "RA15 = A15;", "Expansion RAMS2"),
             ("RAMS3_N    = !(MEM_CYCLE & SEL_RAM3);", "RAMS3_N = 'b'0;", "/RAMS3"),
             ("MEM_CYCLE = !MRQ_N;", "MEM_CYCLE = 'b'1;", "P7..P0"),
             ("PROM_ENABLE = !CPM_MODE # MEM_CYCLE;", "PROM_ENABLE = MEM_CYCLE;", "P7..P0"),
@@ -86,6 +94,8 @@ class SourceVerificationTests(unittest.TestCase):
 
     def test_dependencies_outside_truth_table_sweeps_are_rejected(self):
         faults = (
+            ("SEL_VIDEO   = !CPM_MODE & NORMAL_VIDEO;",
+             "SEL_VIDEO = (!CPM_MODE & NORMAL_VIDEO) # (CPM_MODE & T_MODEL);"),
             ("CPM_RA12 = A12;", "CPM_RA12 = A12 # D7;"),
             ("CPM_WRITE;", "CPM_WRITE # A11;"),
             ("CPM_MODE.d  = D7;", "CPM_MODE.d = D7 # T_MODEL;"),

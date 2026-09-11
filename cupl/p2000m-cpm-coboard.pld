@@ -1,7 +1,7 @@
 Name     P2000M_CPM_COBOARD;
 PartNo   00;
-Date     08/21/2026;
-Revision 0.2;
+Date     09/08/2026;
+Revision 0.4;
 Designer Ivo Filot;
 Company  None;
 Assembly None;
@@ -13,41 +13,42 @@ PROPERTY ATMEL {PIN_KEEP = ON};
 PROPERTY ATMEL {PREASSIGN = KEEP};
 
 /** ------------------------------------------------------------------------**/
-/** ATF1502AS PLCC-44 pin assignment from pcb/modern-revised.               **/
+/** ATF1502AS PLCC-44 assignment optimized for pcb/modern-revised.          **/
 /** The JTAG pins (7, 13, 32 and 38) remain reserved by the ISP device.      **/
 /** ------------------------------------------------------------------------**/
 
 PIN  1 = RES_N;
-PIN  2 = A5;
-PIN  4 = M1_N;
-PIN  5 = WR_N;
-PIN  6 = IORQ_N;
-PIN  8 = A15;
-PIN  9 = MRQ_N;
-PIN 11 = A6;
-PIN 12 = A14;
-PIN 14 = A4;
-PIN 16 = RA12;
-PIN 17 = RA14;
-PIN 18 = RA15;
-PIN 19 = D7;
-PIN 20 = RA13;
-PIN 21 = A11;
-
-PIN 27 = P6_CARS2_N;
-PIN 28 = P7_RAMS2;
-PIN 29 = RAMS3_N;
-PIN 31 = P5_CARS1_N;
-PIN 33 = P4_ROMS2_N;
-PIN 34 = A13;
-PIN 36 = P3_ROMS1_N;
-PIN 37 = P2_VIDS_N;
+PIN  2 = IORQ_N;
+PIN  4 = P4_ROMS2_N;
+PIN  5 = RA14;
+PIN  6 = RA13;
+PIN  8 = RA12;
+PIN 12 = A12;
+PIN 14 = WR_N;
+PIN 16 = A13;
+PIN 18 = T_MODEL; /** Unused: this image is fixed to P2000M. **/
+PIN 19 = RAMS3_N;
+PIN 20 = D7;
+PIN 21 = A4;
+PIN 24 = A5;
+PIN 25 = A6;
+PIN 26 = A7;
+PIN 27 = A14;
+PIN 28 = A11;
+PIN 29 = RA15; /** Legacy net name: J2 pin 26 is RAMS2, not A15. **/
+PIN 31 = MRQ_N;
+PIN 33 = P7_RAMS2;
+PIN 34 = P6_CARS2_N;
+PIN 36 = P5_CARS1_N;
+PIN 37 = P3_ROMS1_N;
 PIN 39 = P1_RAMS1;
 PIN 40 = P0_MBEN_N;
-PIN 41 = A12;
-PIN 43 = A7;
-PIN 44 = T_MODEL;
+PIN 41 = P2_VIDS_N;
+PIN 43 = M1_N;
+PIN 44 = A15;
 
+/** Legacy logic: pin numbers follow the optimized schematic. **/
+/** A14_RAM=11, A15_RAM=17, A16_RAM=9 are not implemented here. **/
 /** Buried CP/M enable register. **/
 Pinnode = CPM_MODE;
 
@@ -91,18 +92,17 @@ CPM_RAM3  = ( A15 & !A14 &  A13)                              /** A000-BFFF **/
 CPM_CART1 = ( A15 &  A14 &  A13 & !A12);                      /** E000-EFFF **/
 CPM_VIDEO = ( A15 &  A14 &  A13 &  A12);                      /** F000-FFFF **/
 
-/** The M model reaches video memory through RAMS2 at translated address 5. **/
-/** The T model additionally needs VIDS_N for its physical 2 KiB video RAM. **/
-CPM_T_VIDEO = CPM_VIDEO & T_MODEL & !A11;                      /** F000-F7FF **/
+/** M video uses translated page 5 with RAMS2 low (verified on hardware). **/
+/** P2000M is fixed in this image; pin 18 does not affect any logic. **/
 
 /** Select the active map. Stock PROM outputs are address-only. **/
 SEL_MONITOR = !CPM_MODE & NORMAL_MONITOR;
 SEL_CART1   = (!CPM_MODE & NORMAL_CART1) # (CPM_MODE & CPM_CART1);
 SEL_CART2   = !CPM_MODE & NORMAL_CART2;
-SEL_VIDEO   = (!CPM_MODE & NORMAL_VIDEO) # (CPM_MODE & CPM_T_VIDEO);
+SEL_VIDEO   = !CPM_MODE & NORMAL_VIDEO;
 SEL_RAM1    = (!CPM_MODE & NORMAL_RAM1) # (CPM_MODE & CPM_RAM1);
 SEL_RAM2    = (!CPM_MODE & NORMAL_RAM2)
-            # (CPM_MODE & (CPM_RAM2 # CPM_VIDEO));
+            # (CPM_MODE & CPM_RAM2);
 SEL_RAM3    = CPM_MODE & CPM_RAM3;
 
 MEM_CYCLE = !MRQ_N;
@@ -126,17 +126,16 @@ RAMS3_N    = !(MEM_CYCLE & SEL_RAM3);
 /** ------------------------------------------------------------------------**/
 /** Expansion-board address translation                                    **/
 /**                                                                          **/
-/** In CP/M mode the upper address nibble is increased by six modulo 16.    **/
-/** Thus CPU 4000-9FFF reaches expansion RAM A000-FFFF and CPU F000 reaches **/
-/** translated address 5000. In the stock map RA12-RA15 equal A12-A15.      **/
+/** REQUIRES J1 pin 26 isolated from A15; real A15 enters via U3 pin 14. **/
+/** Only A12-A14 reach the expansion board; translate these by +6 mod 8. **/
+/** Expansion pin 26 is RAMS2, NOT A15. Its legacy net name is RA15. **/
 /** ------------------------------------------------------------------------**/
 
 CPM_RA12 = A12;
 CPM_RA13 = !A13;
 CPM_RA14 = (A14 & A13) # (!A14 & !A13);
-CPM_RA15 = (A15 & !A14 & !A13) # (!A15 & (A14 # A13));
 
 RA12 = (!CPM_MODE & A12) # (CPM_MODE & CPM_RA12);
 RA13 = (!CPM_MODE & A13) # (CPM_MODE & CPM_RA13);
 RA14 = (!CPM_MODE & A14) # (CPM_MODE & CPM_RA14);
-RA15 = (!CPM_MODE & A15) # (CPM_MODE & CPM_RA15);
+RA15 = P7_RAMS2;

@@ -1,136 +1,66 @@
-# ATF1502AS CUPL source
+# ATF1502AS CPLD firmware
 
-This directory contains the first CPLD implementation for the
-`pcb/modern-revised` schematic. It targets an ATF1502AS in a PLCC-44 socket
-with JTAG left enabled.
+**The schematic is the current implementation; these sources contain older logic.**
+Only their pin assignments have been synchronized with the optimized PCB.
+SRAM address outputs A14_RAM (11), A15_RAM (17), and A16_RAM (9) remain
+unimplemented. A successful build does not validate the current schematic
+functionality. See [the pin assignment report](../pcb/modern-revised/pin-optimization/README.md).
 
-## Implemented behavior
+The regular source is `p2000m-cpm-coboard.pld`. It targets ATF1502AS PLCC44
+with JTAG enabled. The working video-select correction is now part of this
+regular build; the temporary `video-test` variant has been removed.
 
-- Reset selects the normal factory P2000 memory map. In this mode P0-P7
-  reproduce the original 82S123 table independently of `/MRQ`, and local
-  SRAM stays disabled.
-- A normal Z80 I/O write to `0x20-0x2F` latches D7 as the CP/M-map enable.
-- The CP/M map is:
+## Required wiring
 
-| CPU range | Selected target |
+- Isolate CPU connector J1 pin 26 from A15: that motherboard pin is RAMS2.
+- Preserve PROM U3 pin 14 to CPLD U4 pin 44 for actual CPU A15.
+- J2 pin 26 connects to CPLD pin 29 and carries RAMS2_EXP. The source retains
+  the legacy name RA15 for this output; it is not an address line.
+- A11-A14 CPLD pins are reassigned; see the report for the complete table.
+
+## Operation
+
+Reset selects the original PROM mapping. Write 80h to port 20h to select the
+CP/M map; write 00h to restore stock mapping. Ports 20h-2Fh mirror this latch.
+P2000M is fixed in firmware; pin 18 (D0, legacy T_MODEL) does not affect the logic.
+
+| CP/M range | Target |
 |---|---|
-| `0x0000-0x3FFF` | Motherboard RAM (`P1/RAMS1`) |
-| `0x4000-0x9FFF` | Expansion RAM (`P7/RAMS2`) |
-| `0xA000-0xDFFF` | Local 16 KiB SRAM (`/RAMS3`) |
-| `0xE000-0xEFFF` | Second 4 KiB cartridge slice (`P5/CARS1`) |
-| `0xF000-0xFFFF` | Video window through translated expansion address `0x5xxx` |
+| 0000-3FFF | Motherboard RAM |
+| 4000-9FFF | Expansion RAM |
+| A000-DFFF | Local 16 KiB SRAM |
+| E000-EFFF | Cartridge BIOS slice originally at 2000-2FFF |
+| F000-FFFF | Video/attributes, translated page 5, RAMS2 low |
 
-- In CP/M mode, `RA15..RA12` is `A15..A12 + 6` modulo 16. In normal mode,
-  the address passes through unchanged.
-- J3/pin 44 is low for the P2000M and high for the P2000T. The T model also
-  asserts `/VIDS` for `0xF000-0xF7FF`, matching its 2 KiB physical video RAM.
-- In CP/M mode, `/MRQ` gates every memory selection. Local `/RAMS3` always
-  requires both CP/M mode and an active memory cycle, so I/O cycles cannot
-  enable the local SRAM.
+A12-A14 pass through in stock mode; CP/M adds six modulo eight to those three
+address bits. Stock PROM outputs are address-only. In CP/M mode memory selects
+are qualified by /MRQ. Local SRAM is disabled in stock mode and during I/O.
+The original printed FD video-table entries led to an incorrect high RAMS2
+select; real-hardware testing confirmed low RAMS2 works with this board. This
+does not by itself establish an error in the original Sanechal circuit.
 
-The fixed pin assignment is in `p2000m-cpm-coboard.pld`. Any schematic pin
-change must be reflected there and in `verify.py`.
+## Build and verify
 
-## Separate stock-only diagnostic image
-
-`p2000m-stock-prom.pld` is a combinational replacement for the original
-`literature/82s123_dump_mobo.bin` PROM table. It has no mode register, port
-decoder, reset dependency, or `/MRQ` gating. Local `/RAMS3` is permanently high.
-RA12-RA15 always equal A12-A15; A0-A11 pass directly through the PCB from J1 to
-J2, so the expansion/video board receives the original CPU address.
-
-Build and verify it separately:
+Windows, with WinCUPL installed at C:\WINCUPL:
 
 ```bat
-cupl\build.bat stock
+cupl\build.bat cpm
 ```
+
+This produces `cupl/p2000m-cpm-coboard.jed`. Set CUPL_ROOT if installed elsewhere.
+`build.sh` provides the corresponding Wine build on Linux.
 
 ```sh
-./cupl/build.sh stock
-python3 cupl/verify.py --stock
+PYTHONDONTWRITEBYTECODE=1 python3 cupl/verify.py
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s cupl -p 'test_*.py'
 ```
 
-Program `p2000m-stock-prom.jed` for this test. The fit uses 13/32 logic cells,
-zero flip-flops, and leaves JTAG enabled. Its build does not overwrite the
-CP/M-capable image. This reproduces the PROM's logical table; propagation
-delays and physical board connections still require a hardware test.
+The checker evaluates the actual CUPL equations: mapping, RAMS2 output,
+address translation, port writes and reset. It also rejects reintroduction of
+RAMS2 high in the CP/M video window. These are functional checks, not timing
+simulation. The original PROM fixture remains in literature/82s123_dump_mobo.bin.
 
-For a controlled output-slew comparison, `p2000m-stock-fast.pld` contains the
-same stock logic, fitted with `-str output_fast ON`. Build with `build.bat stock-fast`
-or `./cupl/build.sh stock-fast`; program `p2000m-stock-fast.jed`. Verify with
-`python3 cupl/verify.py --stock --source cupl/p2000m-stock-fast.pld`.
-Fast slew changes output transitions, not the chip's physical speed grade;
-it may improve timing margin or worsen ringing depending on the wiring.
-
-## Windows build
-
-Install WinCUPL II and run:
-
-```bat
-cupl\build.bat
-```
-
-The scripts expect WinCUPL in `C:\WINCUPL`. Override that location when
-needed:
-
-```bat
-set CUPL_ROOT=C:\path\to\WINCUPL
-cupl\build.bat
-```
-
-## Linux build with Wine
-
-Install WinCUPL into a Wine prefix and run:
-
-```sh
-./cupl/build.sh
-```
-
-By default the script uses `${WINEPREFIX:-$HOME/.wine}/drive_c/WINCUPL`.
-An alternative installation can be selected with:
-
-```sh
-CUPL_ROOT=/path/to/WINCUPL ./cupl/build.sh
-```
-
-Both build wrappers perform the same two proprietary steps:
-
-1. `cupl.exe` compiles the CUPL source to a `.tt2` netlist.
-2. `find1502.exe` fits that netlist for `P1502C44` and emits the `.jed` file.
-
-The fitter is invoked with `JTAG ON`. Review the generated `.fit` and `.pin`
-reports before programming hardware.
-
-## Verification
-
-The behavioral checker requires only Python 3:
-
-```sh
-python3 cupl/verify.py
-python3 cupl/verify.py --dump
-```
-
-It parses and evaluates the actual `.pld` equations against independent expected
-memory tables. Checks cover source pins and device, all 256 combinations of
-2 KiB block/map/model/memory-request level, all sixteen address translations,
-and 16,384 port/control/data/reset/prior-state combinations. Register checks
-cover rising-edge capture, holding without an edge, asynchronous reset priority,
-and complete write/reset sequences. `--dump` prints source-evaluated results.
-Unsupported syntax, undefined signals, duplicate declarations, and combinational
-feedback fail verification. Checks remain enabled under `python3 -O`.
-Dependencies on inputs outside the corresponding truth-table sweep also fail,
-so a newly introduced input cannot silently escape verification.
-
-Run the checker regression tests, including deliberately broken CUPL equations:
-
-```sh
-python3 -m unittest discover -s cupl -p 'test_*.py'
-```
-
-This is functional source verification for the scalar CUPL syntax used here.
-It does not verify JEDEC fuses, propagation delays, setup/hold timing, or physical
-hardware. A fresh compiler/fitter run and review of its reports are still required.
-The existing ATF1502AS fitter report uses 14 of 32 logic cells, with JTAG enabled.
-
-Generated compiler and fitter files are ignored. Clean them with
-`cupl\clean.bat` or `./cupl/clean.sh`.
+Optional stock-only CPLD sources remain available through `build.bat stock`
+and `build.bat stock-fast` (slow/fast slew). Both disable local SRAM, reproduce
+the PROM table, pass A12-A14 and output RAMS2 on expansion pin 26. They cannot
+switch to CP/M and are not the firmware for the working CP/M setup.

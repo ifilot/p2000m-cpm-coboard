@@ -1,3 +1,6 @@
+> Historical analysis: some mapping assumptions below were superseded by
+> hardware testing. Use the current CUPL and root README for the working setup.
+
 # P2000M CP/M memory-map audit
 
 Sources checked:
