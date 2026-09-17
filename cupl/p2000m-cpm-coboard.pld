@@ -1,7 +1,7 @@
 Name     P2000M_CPM_COBOARD;
 PartNo   00;
-Date     09/08/2026;
-Revision 0.4;
+Date     09/17/2026;
+Revision 0.6;
 Designer Ivo Filot;
 Company  None;
 Assembly None;
@@ -23,10 +23,13 @@ PIN  4 = P4_ROMS2_N;
 PIN  5 = RA14;
 PIN  6 = RA13;
 PIN  8 = RA12;
+PIN  9 = A16_RAM;
+PIN 11 = A14_RAM;
 PIN 12 = A12;
 PIN 14 = WR_N;
 PIN 16 = A13;
-PIN 18 = T_MODEL; /** Unused: this image is fixed to P2000M. **/
+PIN 17 = A15_RAM;
+PIN 18 = T_MODEL; /** Legacy name: physical D0, now overlay enable data. **/
 PIN 19 = RAMS3_N;
 PIN 20 = D7;
 PIN 21 = A4;
@@ -47,10 +50,12 @@ PIN 41 = P2_VIDS_N;
 PIN 43 = M1_N;
 PIN 44 = A15;
 
-/** Legacy logic: pin numbers follow the optimized schematic. **/
-/** A14_RAM=11, A15_RAM=17, A16_RAM=9 are not implemented here. **/
-/** Buried CP/M enable register. **/
+/** Buried control registers, updated atomically by one I/O write. **/
 Pinnode = CPM_MODE;
+Pinnode = BANK_EN;
+Pinnode = BANK0;
+Pinnode = BANK1;
+Pinnode = BANK2;
 
 /** ------------------------------------------------------------------------**/
 /** CP/M mode control                                                       **/
@@ -65,6 +70,28 @@ CPM_WRITE = (!IORQ_N & !WR_N & M1_N & !A7 & !A6 & A5 & !A4);
 CPM_MODE.d  = D7;
 CPM_MODE.ck = CPM_WRITE;
 CPM_MODE.ar = !RES_N;
+
+/** OUT (20h),A places A on A15-A8 as well as the data bus. **/
+/** Capture bits 3-5 via A11-A13; OUT (C),A instead sources them from B. **/
+BANK_EN.d = T_MODEL;
+BANK0.d = A11;
+BANK1.d = A12;
+BANK2.d = A13;
+BANK_EN.ck = CPM_WRITE;
+BANK0.ck = CPM_WRITE;
+BANK1.ck = CPM_WRITE;
+BANK2.ck = CPM_WRITE;
+BANK_EN.ar = !RES_N;
+BANK0.ar = !RES_N;
+BANK1.ar = !RES_N;
+BANK2.ar = !RES_N;
+
+/** Bank 0 remains reserved for A000-DFFF. Overlay only 4000-7FFF. **/
+BANK_WINDOW = CPM_MODE & BANK_EN & (BANK0 # BANK1 # BANK2)
+            & !A15 & A14;
+A14_RAM = BANK_WINDOW & BANK0;
+A15_RAM = BANK_WINDOW & BANK1;
+A16_RAM = BANK_WINDOW & BANK2;
 
 /** ------------------------------------------------------------------------**/
 /** Stock P2000 address regions                                             **/
@@ -93,7 +120,7 @@ CPM_CART1 = ( A15 &  A14 &  A13 & !A12);                      /** E000-EFFF **/
 CPM_VIDEO = ( A15 &  A14 &  A13 &  A12);                      /** F000-FFFF **/
 
 /** M video uses translated page 5 with RAMS2 low (verified on hardware). **/
-/** P2000M is fixed in this image; pin 18 does not affect any logic. **/
+/** P2000M is fixed in this image; pin 18 receives overlay enable data. **/
 
 /** Select the active map. Stock PROM outputs are address-only. **/
 SEL_MONITOR = !CPM_MODE & NORMAL_MONITOR;
@@ -102,8 +129,8 @@ SEL_CART2   = !CPM_MODE & NORMAL_CART2;
 SEL_VIDEO   = !CPM_MODE & NORMAL_VIDEO;
 SEL_RAM1    = (!CPM_MODE & NORMAL_RAM1) # (CPM_MODE & CPM_RAM1);
 SEL_RAM2    = (!CPM_MODE & NORMAL_RAM2)
-            # (CPM_MODE & CPM_RAM2);
-SEL_RAM3    = CPM_MODE & CPM_RAM3;
+            # (CPM_MODE & CPM_RAM2 & !BANK_WINDOW);
+SEL_RAM3    = (CPM_MODE & CPM_RAM3) # BANK_WINDOW;
 
 MEM_CYCLE = !MRQ_N;
 /** Gate motherboard selects only in CP/M mode, preserving stock timing. **/

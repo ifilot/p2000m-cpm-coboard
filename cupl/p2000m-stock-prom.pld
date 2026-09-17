@@ -1,7 +1,7 @@
 Name     P2000M_STOCK_PROM;
 PartNo   00;
-Date     09/07/2026;
-Revision 1.1;
+Date     09/17/2026;
+Revision 1.2;
 Designer Ivo Filot;
 Company  None;
 Assembly None;
@@ -23,9 +23,12 @@ PIN  4 = P4_ROMS2_N;
 PIN  5 = RA14;
 PIN  6 = RA13;
 PIN  8 = RA12;
+PIN  9 = A16_RAM;
+PIN 11 = A14_RAM;
 PIN 12 = A12;
 PIN 14 = WR_N;
 PIN 16 = A13;
+PIN 17 = A15_RAM;
 PIN 18 = T_MODEL;
 PIN 19 = RAMS3_N;
 PIN 20 = D7;
@@ -47,8 +50,11 @@ PIN 41 = P2_VIDS_N;
 PIN 43 = M1_N;
 PIN 44 = A15;
 
-/** Legacy logic: pin numbers follow the optimized schematic. **/
-/** A14_RAM=11, A15_RAM=17, A16_RAM=9 are not implemented here. **/
+/** Select the first 16 KiB SRAM bank, matching the previously grounded pins. **/
+/** These outputs stay low in stock mode, CP/M mode and during reset/I/O. **/
+A14_RAM = 'b'0;
+A15_RAM = 'b'0;
+A16_RAM = 'b'0;
 /** Stock-only diagnostic: no registers, reset dependency or I/O decoder. **/
 /** Only A11-A15 affect the PROM outputs; all other declared inputs are unused. **/
 /** Matches literature/82s123_dump_mobo.bin, including the 5000/5800 split. **/

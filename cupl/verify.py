@@ -19,9 +19,12 @@ EXPECTED_PINS = {
     5: "RA14",
     6: "RA13",
     8: "RA12",
+    9: "A16_RAM",
+    11: "A14_RAM",
     12: "A12",
     14: "WR_N",
     16: "A13",
+    17: "A15_RAM",
     18: "T_MODEL",
     19: "RAMS3_N",
     20: "D7",
@@ -71,9 +74,11 @@ P_OUTPUTS = (
     "P0_MBEN_N", "P1_RAMS1", "P2_VIDS_N", "P3_ROMS1_N",
     "P4_ROMS2_N", "P5_CARS1_N", "P6_CARS2_N", "P7_RAMS2",
 )
-OUTPUTS = P_OUTPUTS + ("RAMS3_N", "RA12", "RA13", "RA14", "RA15")
+SRAM_ADDRESS_OUTPUTS = ("A14_RAM", "A15_RAM", "A16_RAM")
+OUTPUTS = SRAM_ADDRESS_OUTPUTS + P_OUTPUTS + ("RAMS3_N", "RA12", "RA13", "RA14", "RA15")
 INPUTS = set(EXPECTED_PINS.values()) - set(OUTPUTS)
-CONTROLS = ("CPM_MODE.d", "CPM_MODE.ck", "CPM_MODE.ar")
+REGISTERS = ("CPM_MODE", "BANK_EN", "BANK0", "BANK1", "BANK2")
+CONTROLS = tuple(f"{name}.{suffix}" for name in REGISTERS for suffix in ("d", "ck", "ar"))
 
 
 def require(condition: bool, message: str) -> None:
@@ -116,14 +121,14 @@ class Source:
             elif prop:
                 require(prop[1] not in properties, f"Duplicate property {prop[1]}")
                 properties[prop[1]] = prop[2]
-            elif statement == "Pinnode = CPM_MODE":
-                nodes.append("CPM_MODE")
+            elif statement.startswith("Pinnode = "):
+                nodes.append(statement.removeprefix("Pinnode = "))
             else:
                 equation = re.fullmatch(r"([A-Z][A-Z0-9_]*(?:\.[a-z]+)?) = (.+)", statement)
                 require(equation is not None, f"Unsupported CUPL statement: {statement}")
                 name, expression = equation[1], equation[2]
                 require(name not in self.equations, f"Duplicate equation {name}")
-                require(name not in INPUTS | {"CPM_MODE"}, f"Cannot drive input/state {name}")
+                require(name not in INPUTS | set(REGISTERS), f"Cannot drive input/state {name}")
                 require("." not in name or (not stock and name in CONTROLS),
                         f"Unsupported control {name}")
                 expression = re.sub(r"'b'([01])", r"\1", expression)
@@ -142,8 +147,7 @@ class Source:
 
         require(headers.get("Device") == "f1502ispplcc44", "Expected ATF1502AS PLCC-44 device")
         require(pins == EXPECTED_PINS, "Source pin assignments differ from board pinout")
-        require(nodes == ([] if stock else ["CPM_MODE"]),
-                "Expected no registers" if stock else "Expected exactly one CPM_MODE register")
+        require(nodes == ([] if stock else list(REGISTERS)), "Unexpected control registers")
         require(properties == {"POWER_RESET": "OFF", "PIN_KEEP": "ON", "PREASSIGN": "KEEP"},
                 "Unsupported fitter properties; review verification assumptions")
         require(set(OUTPUTS + (() if stock else CONTROLS)) <= self.equations.keys(),
@@ -151,7 +155,7 @@ class Source:
         # Resolve a dependency order once; detect undefined signals and feedback loops.
         self.order = []
         visiting = set()
-        done = INPUTS | (set() if stock else {"CPM_MODE"})
+        done = INPUTS | (set() if stock else set(REGISTERS))
 
         def visit(name):
             if name in done:
@@ -171,7 +175,7 @@ class Source:
         # The truth-table sweeps vary only the relevant inputs. Reject new
         # dependencies outside those sweeps rather than silently testing them
         # at a single default value (for example, a decode depending on D7).
-        leaves = {name: {name} for name in INPUTS | {"CPM_MODE"}}
+        leaves = {name: {name} for name in INPUTS | set(REGISTERS)}
         for name in self.order:
             leaves[name] = set().union(*(leaves[dep] for dep in self.equations[name][1]))
         memory_inputs = {"CPM_MODE", "MRQ_N"} | {
@@ -184,15 +188,23 @@ class Source:
             "CPM_MODE.d": {"D7"},
             "CPM_MODE.ar": {"RES_N"},
         })
+        for name in OUTPUTS:
+            covered_inputs[name] = memory_inputs | set(REGISTERS)
+        for name, data in zip(REGISTERS[1:], ("T_MODEL", "A11", "A12", "A13")):
+            covered_inputs[f"{name}.d"] = {data}
+            covered_inputs[f"{name}.ck"] = {"A4", "A5", "A6", "A7", "IORQ_N", "WR_N", "M1_N"}
+            covered_inputs[f"{name}.ar"] = {"RES_N"}
         if stock:
             covered_inputs = {name: {f"A{bit}" for bit in range(11, 16)} for name in OUTPUTS}
         for name, covered in covered_inputs.items():
             uncovered = leaves[name] - covered
             require(not uncovered, f"Untested input dependencies for {name}: {sorted(uncovered)}")
 
-    def evaluate(self, inputs: dict[str, int], mode: int) -> dict[str, int]:
+    def evaluate(self, inputs: dict[str, int], mode: int, bank: int = 0,
+                 enabled: int = 0) -> dict[str, int]:
         require(inputs.keys() == INPUTS, "Missing or unexpected input signals")
-        values = dict(inputs, CPM_MODE=mode)
+        values = dict(inputs, CPM_MODE=mode, BANK_EN=enabled,
+                      BANK0=bank & 1, BANK1=(bank >> 1) & 1, BANK2=(bank >> 2) & 1)
         for name in self.order:
             # Whitelisted AST only; bit zero implements scalar CUPL complement.
             values[name] = eval(self.equations[name][0], {"__builtins__": {}}, values) & 1
@@ -206,6 +218,19 @@ class Source:
         elif clock and not previous_clock:
             mode = values["CPM_MODE.d"]
         return mode, clock
+
+    def step_state(self, inputs, state, clocks):
+        mode, bank, enabled = state
+        values = self.evaluate(inputs, mode, bank, enabled)
+        result = {}
+        next_clocks = {}
+        for name in REGISTERS:
+            clock = values[f"{name}.ck"]
+            result[name] = (0 if values[f"{name}.ar"] else
+                            values[f"{name}.d"] if clock and not clocks[name] else values[name])
+            next_clocks[name] = clock
+        return (result["CPM_MODE"], sum(result[f"BANK{i}"] << i for i in range(3)),
+                result["BANK_EN"]), next_clocks
 
 
 def inputs_for(address: int = 0, **overrides: int) -> dict[str, int]:
@@ -222,12 +247,15 @@ def output_byte(values: dict[str, int]) -> int:
 
 
 def verify(model: Source) -> None:
+    verify_banking(model)
     for block, mode, t_model, mrq in product(range(32), range(2), range(2), range(2)):
         values = model.evaluate(inputs_for(block << 11, T_MODEL=t_model, MRQ_N=mrq), mode)
         table = CPM_M_P_TABLE if mode else NORMAL_P_TABLE
         expected = ALL_P_SELECTS_INACTIVE if mode and mrq else table[block]
         context = f"block={block:02X}, CPM={mode}, T={t_model}, /MRQ={mrq}"
         require(output_byte(values) == expected, f"P7..P0 mismatch: {context}")
+        for name in SRAM_ADDRESS_OUTPUTS:
+            require(values[name] == 0, f"SRAM bank address mismatch: {name}")
         require(values["RAMS3_N"] == int(not (mode and not mrq and 20 <= block <= 27)),
                 f"/RAMS3 mismatch: {context}")
         require(values["RA15"] == ((expected >> 7) & 1),
@@ -268,6 +296,59 @@ def verify(model: Source) -> None:
         require(mode == expected, "Write/reset sequence mismatch")
 
 
+def verify_banking(model: Source) -> None:
+    # Exhaust every address-decode combination and every control-register state.
+    for block, mode, bank, enabled, mrq in product(range(32), range(2), range(8), range(2), range(2)):
+        values = model.evaluate(inputs_for(block << 11, MRQ_N=mrq), mode, bank, enabled)
+        overlay = bool(mode and enabled and bank and 8 <= block < 16)
+        expected = (CPM_M_P_TABLE if mode else NORMAL_P_TABLE)[block]
+        if mode and (mrq or overlay):
+            expected = ALL_P_SELECTS_INACTIVE
+        require(output_byte(values) == expected, "P7..P0 mismatch in banked map")
+        require(values["RAMS3_N"] == int(not (mode and not mrq and (20 <= block <= 27 or overlay))),
+                "/RAMS3 mismatch in banked map")
+        physical_bank = sum(values[name] << i for i, name in enumerate(SRAM_ADDRESS_OUTPUTS))
+        require(physical_bank == (bank if overlay else 0), "SRAM bank address mismatch")
+        require(values["RA15"] == ((expected >> 7) & 1), "Expansion RAMS2 mismatch in banked map")
+        translated = sum(values[f"RA{bit}"] << (bit - 12) for bit in range(12, 15))
+        require(translated == ((block // 2 + 6 * mode) & 7), "Translation mismatch in banked map")
+
+    # All ports and bus strobes: all five registers must share the valid write edge.
+    for port, iorq, wr, m1 in product(range(256), range(2), range(2), range(2)):
+        values = model.evaluate(inputs_for(port, IORQ_N=iorq, WR_N=wr, M1_N=m1), 0)
+        expected = int(not iorq and not wr and m1 and 0x20 <= port <= 0x2F)
+        for name in REGISTERS:
+            require(values[f"{name}.ck"] == expected, f"Clock mismatch: {name}")
+
+    # Address and data are independent for OUT (C),r. Exercise all combinations,
+    # both reset levels, and every prior state/edge, including reset while idle.
+    for mode, bank, enabled, prior in product(range(2), range(8), range(2), range(32)):
+        state = (prior & 1, (prior >> 1) & 7, (prior >> 4) & 1)
+        for reset, active, previous in product(range(2), range(2), range(2)):
+            inputs = inputs_for((bank << 11) | 0x20, D7=mode, T_MODEL=enabled,
+                                RES_N=reset, IORQ_N=1-active, WR_N=1-active)
+            values = model.evaluate(inputs, *state)
+            for name in REGISTERS:
+                require(values[f"{name}.ar"] == 1-reset, f"Reset mismatch: {name}")
+            expected = ((0, 0, 0) if not reset else
+                        (mode, bank, enabled) if active and not previous else state)
+            actual, _ = model.step_state(inputs, state, dict.fromkeys(REGISTERS, previous))
+            require(actual == expected, "Register data/transition mismatch in banking controls")
+
+    # Real immediate OUT: full accumulator appears on A15-A8; reserved bits ignored.
+    state, clocks = (0, 0, 0), dict.fromkeys(REGISTERS, 0)
+    for command in list(range(256)) + [0x99, 0xB9, 0x81, 0x80, 0x00]:
+        inputs = inputs_for((command << 8) | 0x20, D7=command >> 7,
+                            T_MODEL=command & 1, IORQ_N=0, WR_N=0)
+        state, clocks = model.step_state(inputs, state, clocks)
+        require(state == (command >> 7, (command >> 3) & 7, command & 1),
+                "Immediate OUT command mismatch")
+        # Changing data/address after capture must not change any latched bit.
+        held, clocks = model.step_state(inputs_for(0x20, IORQ_N=0, WR_N=0), state, clocks)
+        require(held == state, "Bank state changed while write strobe held")
+        state, clocks = model.step_state(inputs_for(), state, clocks)
+
+
 def verify_stock(model: Source) -> None:
     """Compare the stock-only logic to the physical PROM dump, with no state."""
     dump = (PLD_PATH.parent.parent / "literature/82s123_dump_mobo.bin").read_bytes()
@@ -276,6 +357,8 @@ def verify_stock(model: Source) -> None:
     for block in range(32):
         values = model.evaluate(inputs_for(block << 11), 0)
         require(output_byte(values) == dump[block], f"Stock PROM mismatch at block {block:02X}")
+        for name in SRAM_ADDRESS_OUTPUTS:
+            require(values[name] == 0, f"SRAM bank address mismatch: {name}")
         require(values["RAMS3_N"] == 1, "Stock SRAM must always be disabled")
         require(values["RA15"] == ((dump[block] >> 7) & 1),
                 f"Stock expansion RAMS2 mismatch at block {block:02X}")
@@ -315,7 +398,7 @@ def main() -> None:
     if args.stock:
         print("Stock CUPL verified: original PROM dump, SRAM disabled, A12-A14 pass-through, pin 26 RAMS2, no registers.")
     else:
-        print("CUPL source verified: pinout, 256 map cases, 16384 control cases and register transitions.")
+        print("CUPL source verified: pinout, legacy and banked maps, atomic bank writes, reset and register transitions.")
     if args.dump:
         if args.stock:
             print(" ".join(f"{output_byte(model.evaluate(inputs_for(block << 11), 0)):02X}"

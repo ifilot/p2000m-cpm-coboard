@@ -19,8 +19,8 @@ class SourceVerificationTests(unittest.TestCase):
         return self.source.replace(old, new, 1)
 
     def test_video_window_rejects_expansion_ram_select(self):
-        broken = self.mutate("# (CPM_MODE & CPM_RAM2);",
-                             "# (CPM_MODE & (CPM_RAM2 # CPM_VIDEO));")
+        broken = self.mutate("# (CPM_MODE & CPM_RAM2 & !BANK_WINDOW);",
+                             "# (CPM_MODE & (CPM_RAM2 # CPM_VIDEO) & !BANK_WINDOW);")
         with self.assertRaisesRegex(ValueError, "P7..P0 mismatch"):
             verify(Source(broken))
 
@@ -40,6 +40,37 @@ class SourceVerificationTests(unittest.TestCase):
                 self.assertIn(old, source)
                 with self.assertRaises(ValueError):
                     verify_stock(Source(source.replace(old, new), stock=True))
+
+    def test_sram_bank_outputs_in_all_variants(self):
+        for filename, stock in (("p2000m-stock-prom.pld", True),
+                                ("p2000m-stock-fast.pld", True)):
+            source = PLD_PATH.with_name(filename).read_text(encoding="ascii")
+            check = verify_stock if stock else verify
+            check(Source(source, stock=stock))
+            for name in ("A14_RAM", "A15_RAM", "A16_RAM"):
+                equation = f"{name} = 'b'0;"
+                for replacement in ("", f"{name} = 'b'1;", f"{name} = A14;"):
+                    with self.subTest(filename=filename, output=name, fault=replacement):
+                        self.assertIn(equation, source)
+                        with self.assertRaisesRegex(ValueError, "Missing|SRAM bank address"):
+                            check(Source(source.replace(equation, replacement), stock=stock))
+
+    def test_banking_faults_are_detected(self):
+        faults = (
+            ("A14_RAM = BANK_WINDOW & BANK0;", "A14_RAM = BANK0;"),
+            ("A16_RAM = BANK_WINDOW & BANK2;", "A16_RAM = 'b'0;"),
+            ("(BANK0 # BANK1 # BANK2)", "'b'1"),
+            ("& !A15 & A14;", "& A14;"),
+            ("& CPM_RAM2 & !BANK_WINDOW", "& CPM_RAM2"),
+            ("BANK1.d = A12;", "BANK1.d = !A12;"),
+            ("BANK_EN.d = T_MODEL;", "BANK_EN.d = !T_MODEL;"),
+            ("BANK2.ar = !RES_N;", "BANK2.ar = 'b'0;"),
+            ("BANK0.ck = CPM_WRITE;", "BANK0.ck = !CPM_WRITE;"),
+        )
+        for old, new in faults:
+            with self.subTest(fault=new):
+                with self.assertRaises(ValueError):
+                    verify(Source(self.mutate(old, new)))
 
     def test_stock_mode_matches_original_prom_dump_with_either_mrq_level(self):
         dump = (PLD_PATH.parent.parent / "literature/82s123_dump_mobo.bin").read_bytes()
