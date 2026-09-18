@@ -14,7 +14,9 @@ compact board:
 - A 128 KiB CY62128 SRAM provides a fixed 16 KiB bank for CP/M plus seven
   switchable 16 KiB banks, accessible through an optional window at `4000–7FFF`.
   The default mapping preserves the existing boot path. Using the extra 112 KiB
-  requires bank-aware software; hardware testing of banking remains outstanding.
+  requires bank-aware software. CPLD revision 0.6 has a banked-video overlap;
+  the attempted revision 0.7 correction fails to boot on hardware. Use 0.6
+  for ordinary CP/M operation with banking disabled pending investigation.
 - Two 40-pin connectors pass the CPU-board and expansion-board buses through
   the co-board. The 16-pin plug replaces the motherboard's 82S123 PROM.
 - The CPLD's JTAG pins remain available for programming. The terminal provides

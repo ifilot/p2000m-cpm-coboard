@@ -4,8 +4,10 @@ Pin assignments follow `pcb/modern-revised/p2000m-cpm-coboard.kicad_sch`.
 SRAM address outputs A14_RAM (11), A15_RAM (17), and A16_RAM (9) select one
 of eight 16 KiB banks. The regular CP/M build reserves bank 0 for A000-DFFF
 and optionally maps banks 1-7 at 4000-7FFF, providing 112 KiB of extra storage.
-The banked image has passed source verification and fitting; hardware testing
-of banking remains outstanding. The stock-prom image has been reported working
+Revision 0.7 passed source verification and fitting but subsequently failed
+to boot on hardware, stopping at co-board enable. It is an experimental,
+non-working hardware fix; use the previously booting revision 0.6 for recovery. Revision 0.6 failed BANKTEST on
+hardware with screen corruption and a first mismatch at CPU 7000h. The stock-prom image has been reported working
 on the revised board.
 
 The regular source is `p2000m-cpm-coboard.pld`. It targets ATF1502AS PLCC44
@@ -83,6 +85,38 @@ must remain disabled during access, preserving the caller's interrupt state.
 Restore the normal map before returning to ordinary CP/M code. There is no
 bank-register readback. A RAM-disk driver or bank-aware program is needed to
 use the extra memory; the supplied CP/M 2.2 software does not use it automatically.
+
+## Revision 0.7: banked-window video isolation
+
+Revision 0.6 suppressed RAMS2 during banking but still translated CPU
+7000-7FFF to expansion page 5000-5FFF. The P2000M video board independently
+decodes that page with RAMS2 low, so SRAM and video were selected together.
+BANKTEST on hardware garbled the screen and failed at bank 1, address 7000h
+(expected 71h; observed 25h or 27h). Read values under simultaneous selection
+are not predictable; they do not establish a particular SRAM data-bit fault.
+
+Revision 0.7 clears expansion A12 only for the banked 7000-7FFF page:
+
+```cupl
+CPM_RA12 = A12 & !(BANK_WINDOW & A13);
+```
+
+This redirects the external page from 5 to 4 while leaving SRAM address lines
+unchanged. Outside that overlay page the original translation is preserved,
+including normal video at F000-FFFF. No CP/M software change is required by this interface. However, the resulting
+0.7 image failed physical boot testing. Restore a known-booting 0.6 image and
+hold off banking tests while this regression is investigated. Static equations
+and successful fitting do not validate physical behavior. The 0.7 image is
+retained for investigation, not recommended for use.
+
+The checker now evaluates the downstream video decode as well as CPLD selects;
+the former checker treated inactive motherboard selects as sufficient to isolate
+SRAM. Tests explicitly reject the revision 0.6 equation. The emulator's logical
+memory map assumes isolated devices and cannot predict electrical bus contention.
+
+The local Philips field-support manual, section 3.2.1 (page 3-14), describes
+the video board's independent 5000-5FFF decode. The RAMS2-low video condition
+also matches the established working F000-FFFF mapping on this revised board.
 
 ## Build and verify
 

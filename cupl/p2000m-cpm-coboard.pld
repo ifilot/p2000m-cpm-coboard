@@ -1,7 +1,7 @@
 Name     P2000M_CPM_COBOARD;
 PartNo   00;
-Date     09/17/2026;
-Revision 0.6;
+Date     09/18/2026;
+Revision 0.7;
 Designer Ivo Filot;
 Company  None;
 Assembly None;
@@ -158,7 +158,11 @@ RAMS3_N    = !(MEM_CYCLE & SEL_RAM3);
 /** Expansion pin 26 is RAMS2, NOT A15. Its legacy net name is RA15. **/
 /** ------------------------------------------------------------------------**/
 
-CPM_RA12 = A12;
+/** With RAMS2 low, translated page 5 also selects the M video board. **/
+/** Banking suppresses RAMS2, so 7000-7FFF must not translate to page 5. **/
+/** Clear expansion A12 during the overlay: page 5 becomes harmless 4. **/
+/** CPU/SRAM address lines and the genuine F000-FFFF video map are unchanged. **/
+CPM_RA12 = A12 & !(BANK_WINDOW & A13);
 CPM_RA13 = !A13;
 CPM_RA14 = (A14 & A13) # (!A14 & !A13);
 

@@ -311,7 +311,17 @@ def verify_banking(model: Source) -> None:
         require(physical_bank == (bank if overlay else 0), "SRAM bank address mismatch")
         require(values["RA15"] == ((expected >> 7) & 1), "Expansion RAMS2 mismatch in banked map")
         translated = sum(values[f"RA{bit}"] << (bit - 12) for bit in range(12, 15))
-        require(translated == ((block // 2 + 6 * mode) & 7), "Translation mismatch in banked map")
+        # The M video board decodes page 5 with RAMS2 low independently of
+        # motherboard /VIDS. Suppressing expansion RAM alone is insufficient:
+        # rev 0.6 selected both bank SRAM and video at CPU 7000-7FFF.
+        video_selected = not mrq and not values["RA15"] and translated == 5
+        if mode:
+            require(video_selected == (not mrq and block >= 30),
+                    "Expansion video overlap/missing video in banked map")
+        expected_page = (block // 2 + 6 * mode) & 7
+        if overlay and (block & 4):
+            expected_page &= ~1
+        require(translated == expected_page, "Translation mismatch in banked map")
 
     # All ports and bus strobes: all five registers must share the valid write edge.
     for port, iorq, wr, m1 in product(range(256), range(2), range(2), range(2)):

@@ -24,6 +24,24 @@ class SourceVerificationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "P7..P0 mismatch"):
             verify(Source(broken))
 
+    def test_banked_window_never_selects_video(self):
+        model = Source(self.source)
+        for bank in range(1, 8):
+            for address in (0x4000, 0x5000, 0x6000, 0x7000, 0x7800, 0x7fff):
+                values = model.evaluate(inputs_for(address, MRQ_N=0), 1, bank, 1)
+                page = sum(values[f"RA{bit}"] << (bit - 12) for bit in (12, 13, 14))
+                self.assertEqual(values["RAMS3_N"], 0)
+                self.assertEqual(values["RA15"], 0)
+                self.assertNotEqual(page, 5)
+            values = model.evaluate(inputs_for(0xf000, MRQ_N=0), 1, bank, 1)
+            self.assertEqual(tuple(values[name] for name in ("RA14", "RA13", "RA12", "RA15")),
+                             (1, 0, 1, 0))
+        # Reintroduce rev 0.6 and prove that the independent video decoder
+        # check catches the hardware failure, not just a changed truth table.
+        broken = self.mutate("CPM_RA12 = A12 & !(BANK_WINDOW & A13);", "CPM_RA12 = A12;")
+        with self.assertRaisesRegex(ValueError, "Expansion video overlap"):
+            verify(Source(broken))
+
     def test_current_design(self):
         verify(Source(self.source))
 
@@ -87,7 +105,7 @@ class SourceVerificationTests(unittest.TestCase):
             ("RAMS3_N    = !(MEM_CYCLE & SEL_RAM3);", "RAMS3_N = 'b'0;", "/RAMS3"),
             ("MEM_CYCLE = !MRQ_N;", "MEM_CYCLE = 'b'1;", "P7..P0"),
             ("PROM_ENABLE = !CPM_MODE # MEM_CYCLE;", "PROM_ENABLE = MEM_CYCLE;", "P7..P0"),
-            ("CPM_RA13 = !A13;", "CPM_RA13 = A13;", "Translation"),
+            ("CPM_RA13 = !A13;", "CPM_RA13 = A13;", "Translation|Expansion video"),
             ("A5 & !A4", "A5 & A4", "Clock"),
             ("CPM_MODE.d  = D7;", "CPM_MODE.d = !D7;", "Register data"),
             ("CPM_MODE.ar = !RES_N;", "CPM_MODE.ar = RES_N;", "Reset"),
@@ -127,7 +145,7 @@ class SourceVerificationTests(unittest.TestCase):
         faults = (
             ("SEL_VIDEO   = !CPM_MODE & NORMAL_VIDEO;",
              "SEL_VIDEO = (!CPM_MODE & NORMAL_VIDEO) # (CPM_MODE & T_MODEL);"),
-            ("CPM_RA12 = A12;", "CPM_RA12 = A12 # D7;"),
+            ("CPM_RA12 = A12 & !(BANK_WINDOW & A13);", "CPM_RA12 = (A12 & !(BANK_WINDOW & A13)) # D7;"),
             ("CPM_WRITE;", "CPM_WRITE # A11;"),
             ("CPM_MODE.d  = D7;", "CPM_MODE.d = D7 # T_MODEL;"),
             ("CPM_MODE.ar = !RES_N;", "CPM_MODE.ar = !RES_N # !MRQ_N;"),
@@ -146,7 +164,7 @@ class SourceVerificationTests(unittest.TestCase):
                 capture_output=True, text=True,
             )
             self.assertEqual(result.returncode, 1)
-            self.assertIn("Translation mismatch", result.stderr)
+            self.assertRegex(result.stderr, "Translation mismatch|Expansion video")
             self.assertNotIn("source verified", result.stdout)
 
 
