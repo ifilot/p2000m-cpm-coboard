@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from verify import PLD_PATH, Source, inputs_for, output_byte, verify, verify_stock
+from verify import PLD_PATH, Source, inputs_for, output_byte, verify, verify_no_floppy, verify_stock
 
 
 class SourceVerificationTests(unittest.TestCase):
@@ -36,8 +36,8 @@ class SourceVerificationTests(unittest.TestCase):
             values = model.evaluate(inputs_for(0xf000, MRQ_N=0), 1, bank, 1)
             self.assertEqual(tuple(values[name] for name in ("RA14", "RA13", "RA12", "RA15")),
                              (1, 0, 1, 0))
-        # Reintroduce rev 0.6 and prove that the independent video decoder
-        # check catches the hardware failure, not just a changed truth table.
+        # Remove the isolation term and prove that the independent video
+        # decoder check catches the collision, not just a changed truth table.
         broken = self.mutate("CPM_RA12 = A12 & !(BANK_WINDOW & A13);", "CPM_RA12 = A12;")
         with self.assertRaisesRegex(ValueError, "Expansion video overlap"):
             verify(Source(broken))
@@ -45,8 +45,42 @@ class SourceVerificationTests(unittest.TestCase):
     def test_current_design(self):
         verify(Source(self.source))
 
+    def test_no_floppy_design(self):
+        source = PLD_PATH.with_name("p2000m-cpm-coboard-no-floppy.pld").read_text(encoding="ascii")
+        model = Source(source)
+        verify_no_floppy(model)
+
+        for address, expected_bank in ((0x4000, 1), (0x7fff, 1),
+                                       (0x8000, 2), (0x9fff, 2),
+                                       (0xa000, 0), (0xdfff, 0)):
+            values = model.evaluate(inputs_for(address, MRQ_N=0), 1)
+            actual_bank = sum(values[name] << bit for bit, name in enumerate(
+                ("A14_RAM", "A15_RAM", "A16_RAM")))
+            self.assertEqual(actual_bank, expected_bank)
+            self.assertEqual(values["RAMS3_N"], 0)
+            if address < 0xa000:
+                self.assertEqual(values["P7_RAMS2"], 0)
+
+        for requested_bank in range(8):
+            values = model.evaluate(inputs_for(0x4000, MRQ_N=0), 1, requested_bank, 1)
+            actual_bank = sum(values[name] << bit for bit, name in enumerate(
+                ("A14_RAM", "A15_RAM", "A16_RAM")))
+            self.assertEqual(actual_bank, requested_bank if requested_bank >= 3 else 1)
+
+        faults = (
+            ("VALID_USER_BANK = BANK2 # (BANK1 & BANK0);", "VALID_USER_BANK = 'b'1;"),
+            ("SEL_RAM2    = !CPM_MODE & NORMAL_RAM2;",
+             "SEL_RAM2 = (!CPM_MODE & NORMAL_RAM2) # (CPM_MODE & CPM_RAM2);"),
+            ("CPM_RA12 = A12 & !(CPM_REPLACEMENT_LO & A13);", "CPM_RA12 = A12;"),
+        )
+        for old, new in faults:
+            with self.subTest(fault=new):
+                self.assertIn(old, source)
+                with self.assertRaises(ValueError):
+                    verify_no_floppy(Source(source.replace(old, new)))
+
     def test_stock_only_design_and_fault_detection(self):
-        source = PLD_PATH.with_name("p2000m-stock-prom.pld").read_text(encoding="ascii")
+        source = PLD_PATH.with_name("p2000m-stock-decoder.pld").read_text(encoding="ascii")
         verify_stock(Source(source, stock=True))
         for old, new in (("RAMS3_N = 'b'1;", "RAMS3_N = 'b'0;"),
                          ("RA13 = A13;", "RA13 = !A13;"),
@@ -60,18 +94,16 @@ class SourceVerificationTests(unittest.TestCase):
                     verify_stock(Source(source.replace(old, new), stock=True))
 
     def test_sram_bank_outputs_in_all_variants(self):
-        for filename, stock in (("p2000m-stock-prom.pld", True),
-                                ("p2000m-stock-fast.pld", True)):
-            source = PLD_PATH.with_name(filename).read_text(encoding="ascii")
-            check = verify_stock if stock else verify
-            check(Source(source, stock=stock))
-            for name in ("A14_RAM", "A15_RAM", "A16_RAM"):
-                equation = f"{name} = 'b'0;"
-                for replacement in ("", f"{name} = 'b'1;", f"{name} = A14;"):
-                    with self.subTest(filename=filename, output=name, fault=replacement):
-                        self.assertIn(equation, source)
-                        with self.assertRaisesRegex(ValueError, "Missing|SRAM bank address"):
-                            check(Source(source.replace(equation, replacement), stock=stock))
+        filename = "p2000m-stock-decoder.pld"
+        source = PLD_PATH.with_name(filename).read_text(encoding="ascii")
+        verify_stock(Source(source, stock=True))
+        for name in ("A14_RAM", "A15_RAM", "A16_RAM"):
+            equation = f"{name} = 'b'0;"
+            for replacement in ("", f"{name} = 'b'1;", f"{name} = A14;"):
+                with self.subTest(filename=filename, output=name, fault=replacement):
+                    self.assertIn(equation, source)
+                    with self.assertRaisesRegex(ValueError, "Missing|SRAM bank address"):
+                        verify_stock(Source(source.replace(equation, replacement), stock=True))
 
     def test_banking_faults_are_detected(self):
         faults = (

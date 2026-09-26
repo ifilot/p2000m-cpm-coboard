@@ -5,6 +5,8 @@
 *.fit
 *.io
 *.jed
+!p2000m-cpm-coboard.jed
+!p2000m-cpm-coboard-no-floppy.jed
 *.lst
 *.mx
 *.pin

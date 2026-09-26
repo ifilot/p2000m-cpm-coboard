@@ -14,14 +14,13 @@ set "SOURCE=p2000m-cpm-coboard.pld"
 set "BASENAME=p2000m-cpm-coboard"
 set "OUTPUT_FAST=OFF"
 if /I "%~1"=="stock" (
-    set "SOURCE=p2000m-stock-prom.pld"
-    set "BASENAME=p2000m-stock-prom"
-) else if /I "%~1"=="stock-fast" (
-    set "SOURCE=p2000m-stock-fast.pld"
-    set "BASENAME=p2000m-stock-fast"
-    set "OUTPUT_FAST=ON"
+    set "SOURCE=p2000m-stock-decoder.pld"
+    set "BASENAME=p2000m-stock-decoder"
+) else if /I "%~1"=="no-floppy" (
+    set "SOURCE=p2000m-cpm-coboard-no-floppy.pld"
+    set "BASENAME=p2000m-cpm-coboard-no-floppy"
 ) else if not "%~1"=="" if /I not "%~1"=="cpm" (
-    echo Usage: build.bat [cpm^|stock^|stock-fast]
+    echo Usage: build.bat [cpm^|no-floppy^|stock]
     exit /B 1
 )
 

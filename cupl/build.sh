@@ -13,9 +13,9 @@ BASENAME=p2000m-cpm-coboard
 OUTPUT_FAST=OFF
 case "${1:-cpm}" in
     cpm) ;;
-    stock) BASENAME=p2000m-stock-prom; SOURCE=$BASENAME.pld ;;
-    stock-fast) BASENAME=p2000m-stock-fast; SOURCE=$BASENAME.pld; OUTPUT_FAST=ON ;;
-    *) echo "Usage: $0 [cpm|stock|stock-fast]" >&2; exit 1 ;;
+    no-floppy) BASENAME=p2000m-cpm-coboard-no-floppy; SOURCE=$BASENAME.pld ;;
+    stock) BASENAME=p2000m-stock-decoder; SOURCE=$BASENAME.pld ;;
+    *) echo "Usage: $0 [cpm|no-floppy|stock]" >&2; exit 1 ;;
 esac
 
 if ! command -v wine >/dev/null 2>&1; then

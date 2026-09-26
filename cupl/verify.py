@@ -67,6 +67,15 @@ CPM_M_P_TABLE = bytes.fromhex(
     """
 )
 
+CPM_NO_FLOPPY_P_TABLE = bytes.fromhex(
+    """
+    7E 7E 7E 7E  7E 7E 7E 7E
+    7D 7D 7D 7D  7D 7D 7D 7D
+    7D 7D 7D 7D  7D 7D 7D 7D
+    7D 7D 7D 7D  5C 5C 7D 7D
+    """
+)
+
 ALL_P_SELECTS_INACTIVE = 0x7D
 
 
@@ -296,19 +305,36 @@ def verify(model: Source) -> None:
         require(mode == expected, "Write/reset sequence mismatch")
 
 
-def verify_banking(model: Source) -> None:
+def verify_banking(model: Source, *, no_floppy: bool = False) -> None:
     # Exhaust every address-decode combination and every control-register state.
     for block, mode, bank, enabled, mrq in product(range(32), range(2), range(8), range(2), range(2)):
         values = model.evaluate(inputs_for(block << 11, MRQ_N=mrq), mode, bank, enabled)
-        overlay = bool(mode and enabled and bank and 8 <= block < 16)
-        expected = (CPM_M_P_TABLE if mode else NORMAL_P_TABLE)[block]
-        if mode and (mrq or overlay):
+        usable_bank = bank >= 3 if no_floppy else bank != 0
+        overlay = bool(mode and enabled and usable_bank and 8 <= block < 16)
+        mode_table = CPM_NO_FLOPPY_P_TABLE if no_floppy else CPM_M_P_TABLE
+        expected = (mode_table if mode else NORMAL_P_TABLE)[block]
+        if mode and (mrq or (overlay and not no_floppy)):
             expected = ALL_P_SELECTS_INACTIVE
         require(output_byte(values) == expected, "P7..P0 mismatch in banked map")
-        require(values["RAMS3_N"] == int(not (mode and not mrq and (20 <= block <= 27 or overlay))),
+        if no_floppy:
+            local_selected = mode and not mrq and 8 <= block <= 27
+            if not mode:
+                physical_bank = 0
+            elif overlay:
+                physical_bank = bank
+            elif 8 <= block < 16:
+                physical_bank = 1
+            elif 16 <= block < 20:
+                physical_bank = 2
+            else:
+                physical_bank = 0
+        else:
+            local_selected = mode and not mrq and (20 <= block <= 27 or overlay)
+            physical_bank = bank if overlay else 0
+        require(values["RAMS3_N"] == int(not local_selected),
                 "/RAMS3 mismatch in banked map")
-        physical_bank = sum(values[name] << i for i, name in enumerate(SRAM_ADDRESS_OUTPUTS))
-        require(physical_bank == (bank if overlay else 0), "SRAM bank address mismatch")
+        actual_bank = sum(values[name] << i for i, name in enumerate(SRAM_ADDRESS_OUTPUTS))
+        require(actual_bank == physical_bank, "SRAM bank address mismatch")
         require(values["RA15"] == ((expected >> 7) & 1), "Expansion RAMS2 mismatch in banked map")
         translated = sum(values[f"RA{bit}"] << (bit - 12) for bit in range(12, 15))
         # The M video board decodes page 5 with RAMS2 low independently of
@@ -319,7 +345,9 @@ def verify_banking(model: Source) -> None:
             require(video_selected == (not mrq and block >= 30),
                     "Expansion video overlap/missing video in banked map")
         expected_page = (block // 2 + 6 * mode) & 7
-        if overlay and (block & 4):
+        if no_floppy and mode and 8 <= block < 16 and (block & 4):
+            expected_page &= ~1
+        elif overlay and (block & 4):
             expected_page &= ~1
         require(translated == expected_page, "Translation mismatch in banked map")
 
@@ -353,10 +381,13 @@ def verify_banking(model: Source) -> None:
         state, clocks = model.step_state(inputs, state, clocks)
         require(state == (command >> 7, (command >> 3) & 7, command & 1),
                 "Immediate OUT command mismatch")
-        # Changing data/address after capture must not change any latched bit.
         held, clocks = model.step_state(inputs_for(0x20, IORQ_N=0, WR_N=0), state, clocks)
         require(held == state, "Bank state changed while write strobe held")
         state, clocks = model.step_state(inputs_for(), state, clocks)
+
+def verify_no_floppy(model: Source) -> None:
+    """Verify CP/M replacement RAM and the reduced bank set."""
+    verify_banking(model, no_floppy=True)
 
 
 def verify_stock(model: Source) -> None:
@@ -398,22 +429,33 @@ def main() -> None:
     parser.add_argument("--dump", action="store_true", help="print the verified source tables")
     parser.add_argument("--source", type=Path, help="CUPL source to verify")
     parser.add_argument("--stock", action="store_true", help="verify the separate stock-only PROM image")
+    parser.add_argument("--no-floppy", action="store_true", help="verify the RAM-replacement image")
     args = parser.parse_args()
     try:
-        path = args.source or (PLD_PATH.with_name("p2000m-stock-prom.pld") if args.stock else PLD_PATH)
+        require(not (args.stock and args.no_floppy), "Choose only one firmware variant")
+        if args.source:
+            path = args.source
+        elif args.stock:
+            path = PLD_PATH.with_name("p2000m-stock-decoder.pld")
+        elif args.no_floppy:
+            path = PLD_PATH.with_name("p2000m-cpm-coboard-no-floppy.pld")
+        else:
+            path = PLD_PATH
         model = Source(path.read_text(encoding="ascii"), stock=args.stock)
-        (verify_stock if args.stock else verify)(model)
+        (verify_stock if args.stock else verify_no_floppy if args.no_floppy else verify)(model)
     except (ValueError, SyntaxError, OSError) as error:
         parser.exit(1, f"Verification failed: {error}\n")
     if args.stock:
         print("Stock CUPL verified: original PROM dump, SRAM disabled, A12-A14 pass-through, pin 26 RAMS2, no registers.")
+    elif args.no_floppy:
+        print("No-floppy CUPL verified: replacement RAM, banks 3-7, video isolation and controls.")
     else:
         print("CUPL source verified: pinout, legacy and banked maps, atomic bank writes, reset and register transitions.")
     if args.dump:
         if args.stock:
             print(" ".join(f"{output_byte(model.evaluate(inputs_for(block << 11), 0)):02X}"
                            for block in range(32)))
-        else:
+        elif not args.no_floppy:
             dump_tables(model)
 
 

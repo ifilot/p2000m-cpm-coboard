@@ -4,10 +4,12 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SCRIPT_DIR"
 
-rm -f p2000m-cpm-coboard.abs p2000m-cpm-coboard.doc \
-      p2000m-cpm-coboard.err p2000m-cpm-coboard.fit \
-      p2000m-cpm-coboard.io p2000m-cpm-coboard.jed \
-      p2000m-cpm-coboard.lst p2000m-cpm-coboard.mx \
-      p2000m-cpm-coboard.pin p2000m-cpm-coboard.pla \
-      p2000m-cpm-coboard.sim p2000m-cpm-coboard.tt2 \
-      p2000m-cpm-coboard.tt3
+for basename in p2000m-cpm-coboard p2000m-cpm-coboard-no-floppy p2000m-stock-decoder; do
+    rm -f "$basename.abs" "$basename.doc" "$basename.err" \
+          "$basename.fit" "$basename.io" "$basename.lst" \
+          "$basename.mx" "$basename.pin" "$basename.pla" \
+          "$basename.sim" "$basename.tt2" "$basename.tt3"
+done
+
+# JEDEC files are release artifacts. Do not remove the checked-in standard
+# image or a locally compiled no-floppy image during routine cleanup.

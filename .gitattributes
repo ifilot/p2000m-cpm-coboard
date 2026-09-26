@@ -1,0 +1,2 @@
+# JEDEC programming files contain control bytes and must remain byte-exact.
+*.jed binary

@@ -1,4 +1,4 @@
-Name     P2000M_STOCK_PROM;
+Name     P2000M_STOCK_DECODER;
 PartNo   00;
 Date     09/17/2026;
 Revision 1.2;
@@ -13,7 +13,7 @@ PROPERTY ATMEL {PIN_KEEP = ON};
 PROPERTY ATMEL {PREASSIGN = KEEP};
 
 /** ------------------------------------------------------------------------**/
-/** ATF1502AS PLCC-44 assignment optimized for pcb/modern-revised.          **/
+/** ATF1502AS PLCC-44 assignment for the canonical PCB in pcb/.             **/
 /** The JTAG pins (7, 13, 32 and 38) remain reserved by the ISP device.      **/
 /** ------------------------------------------------------------------------**/
 

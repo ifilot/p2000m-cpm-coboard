@@ -1,146 +1,134 @@
-# ATF1502AS CPLD firmware
+# ATF1502AS firmware
 
-Pin assignments follow `pcb/modern-revised/p2000m-cpm-coboard.kicad_sch`.
-SRAM address outputs A14_RAM (11), A15_RAM (17), and A16_RAM (9) select one
-of eight 16 KiB banks. The regular CP/M build reserves bank 0 for A000-DFFF
-and optionally maps banks 1-7 at 4000-7FFF, providing 112 KiB of extra storage.
-Revision 0.7 passed source verification and fitting but subsequently failed
-to boot on hardware, stopping at co-board enable. It is an experimental,
-non-working hardware fix; use the previously booting revision 0.6 for recovery. Revision 0.6 failed BANKTEST on
-hardware with screen corruption and a first mismatch at CPU 7000h. The stock-prom image has been reported working
-on the revised board.
+The firmware targets the ATF1502AS in the canonical PCB under `pcb/`. The
+tested standard implementation is `p2000m-cpm-coboard.pld`; its distributable
+programming file is `p2000m-cpm-coboard.jed`.
 
-The regular source is `p2000m-cpm-coboard.pld`. It targets ATF1502AS PLCC44
-with JTAG enabled. The working video-select correction is now part of this
-regular build; the temporary `video-test` variant has been removed.
+## Implementations
 
-## Required wiring
+| Build | Purpose | Status |
+| --- | --- | --- |
+| `cpm` | Normal CP/M co-board with seven optional SRAM banks | Tested on hardware |
+| `no-floppy` | CP/M map with onboard replacement for the absent floppy-board RAM | Source-verified; requires compilation and hardware testing |
+| `stock` | Diagnostic reproduction of the factory 82S123 decoder | Reference/test implementation |
 
-- Isolate CPU connector J1 pin 26 from A15: that motherboard pin is RAMS2.
-- Preserve PROM U3 pin 14 to CPLD U4 pin 44 for actual CPU A15.
-- J2 pin 26 connects to CPLD pin 29 and carries RAMS2_EXP. The source retains
-  the legacy name RA15 for this output; it is not an address line.
-- CPU A11/A12/A13/A14 connect to CPLD pins 28/12/16/27 respectively.
+The `no-floppy` image must only be used when the complete floppy-controller
+board is absent. It replaces that board's 24 KiB RAM, not its controller or
+storage functions. The video expansion board remains installed.
 
-## Operation
+## Normal operation
 
-Reset selects the original PROM mapping. Write 80h to port 20h to select the
-CP/M map; write 00h to restore stock mapping. Ports 20h-2Fh mirror this latch.
-P2000M is fixed in firmware. Pin 18 is D0 (legacy CUPL name T_MODEL) and
-supplies the overlay-enable bit.
+Reset selects the stock P2000M map. Write `80h` to port `20h` to select the
+CP/M map and `00h` to restore the stock map. Ports `20h`-`2Fh` are aliases.
 
 | CP/M range | Target |
-|---|---|
-| 0000-3FFF | Motherboard RAM |
-| 4000-7FFF | Expansion RAM, or selected SRAM bank 1-7 when enabled |
-| 8000-9FFF | Expansion RAM |
-| A000-DFFF | Local 16 KiB SRAM, always bank 0 |
-| E000-EFFF | Cartridge BIOS slice originally at 2000-2FFF |
-| F000-FFFF | Video/attributes, translated page 5, RAMS2 low |
+| --- | --- |
+| `0000`-`3FFF` | Motherboard RAM |
+| `4000`-`9FFF` | Floppy-controller-board RAM |
+| `A000`-`DFFF` | Local SRAM bank 0 |
+| `E000`-`EFFF` | Cartridge BIOS slice originally at `2000`-`2FFF` |
+| `F000`-`FFFF` | Video/attributes through translated expansion address page 5 |
 
-A12-A14 pass through in stock mode; CP/M adds six modulo eight to those three
-address bits. Stock PROM outputs are address-only. In CP/M mode memory selects
-are qualified by /MRQ. Local SRAM is disabled in stock mode and during I/O.
-The original printed FD video-table entries led to an incorrect high RAMS2
-select; real-hardware testing confirmed low RAMS2 works with this board. This
-does not by itself establish an error in the original Sanechal circuit.
+The CPLD keeps the video board isolated from the SRAM bank window and preserves
+the normal video map. This decode and the banked interface have been tested on
+hardware.
 
 ## Atomic bank switching
 
-Use the Z80 instruction `OUT (20h),A`. It places A on both the data bus and
-address lines A8-A15, allowing the CPLD to capture three bank bits through
-its existing A11-A13 inputs. All five control bits latch together at assertion
-of the qualified I/O write strobe; interrupt-acknowledge cycles are excluded.
+Use `OUT (20h),A`. On the Z80, an immediate `OUT` places the accumulator on the
+data bus and on address lines A8-A15, allowing all five control bits to be
+captured on one qualified write edge.
 
 | Accumulator bit | Meaning | CPLD input |
-|---|---|---|
+| --- | --- | --- |
 | 7 | Enable CP/M mapping | D7 |
 | 5-3 | SRAM bank number, 0-7 | A13-A11 |
-| 0 | Enable SRAM overlay at 4000-7FFF | D0 |
-| 6, 2-1 | Reserved; write zero (currently ignored) | — |
+| 0 | Enable the SRAM overlay at `4000`-`7FFF` | D0 |
+| 6, 2-1 | Reserved; write zero | - |
 
-For bank n (1-7), write `81h OR (n << 3)`. For example:
+For the normal image, select bank `n` from 1 through 7 with
+`81h OR (n << 3)`. For example:
 
 ```asm
 LD A,099h       ; CP/M mode, bank 3, overlay enabled
 OUT (020h),A
-; Access bank 3 at 4000h-7FFFh here.
-LD A,080h       ; Restore expansion RAM and the ordinary CP/M map
+; Access bank 3 at 4000h-7FFFh.
+LD A,080h       ; Restore the ordinary CP/M map
 OUT (020h),A
 ```
 
-The overlay requires CP/M mode, enable=1, and a nonzero bank. Selecting bank 0
-leaves expansion RAM visible, protecting the bank used by resident CP/M.
-Reset asynchronously clears all five bits. Existing 80h/00h writes retain
-their original behavior and disable the overlay. All ports 20h-2Fh are aliases.
-Expansion RAM select is suppressed while local SRAM serves the overlay.
+Bank 0 remains reserved for resident CP/M. Keep the switching routine, stack,
+interrupt handlers, and the software shadow of the control byte outside the
+overlay. There is no bank-register readback, and the supplied CP/M 2.2 software
+does not use the additional banks automatically.
 
-With `OUT (C),A`, the bank bits instead come from B bits 3-5; D7 and D0 still
-come from A. Prefer immediate `OUT (20h),A` to keep the whole command in A.
-This bus behavior is documented in the [Zilog Z80 manual, page 306](https://www.zilog.com/docs/z80/um0080.pdf).
+With `OUT (C),A`, the bank bits come from B bits 3-5 rather than A. Prefer the
+immediate form so the command is wholly represented by A.
 
-Keep the switching/copy routine, stack, and software shadow of the control byte
-outside 4000-7FFF. Interrupt handlers must also avoid the window or interrupts
-must remain disabled during access, preserving the caller's interrupt state.
-Restore the normal map before returning to ordinary CP/M code. There is no
-bank-register readback. A RAM-disk driver or bank-aware program is needed to
-use the extra memory; the supplied CP/M 2.2 software does not use it automatically.
+## No-floppy RAM allocation
 
-## Revision 0.7: banked-window video isolation
+`p2000m-cpm-coboard-no-floppy.pld` dedicates bank 1 to `4000`-`7FFF` and the
+lower half of bank 2 to `8000`-`9FFF`. Bank 0 remains fixed at `A000`-`DFFF`.
+Only banks 3-7 are available for overlay use.
 
-Revision 0.6 suppressed RAMS2 during banking but still translated CPU
-7000-7FFF to expansion page 5000-5FFF. The P2000M video board independently
-decodes that page with RAMS2 low, so SRAM and video were selected together.
-BANKTEST on hardware garbled the screen and failed at bank 1, address 7000h
-(expected 71h; observed 25h or 27h). Read values under simultaneous selection
-are not predictable; they do not establish a particular SRAM data-bit fault.
+Commands requesting banks 1 or 2 do not enable an overlay in this variant;
+the replacement RAM remains visible. Valid overlay commands are therefore:
 
-Revision 0.7 clears expansion A12 only for the banked 7000-7FFF page:
+| Bank | Command |
+| ---: | ---: |
+| 3 | `99h` |
+| 4 | `A1h` |
+| 5 | `A9h` |
+| 6 | `B1h` |
+| 7 | `B9h` |
 
-```cupl
-CPM_RA12 = A12 & !(BANK_WINDOW & A13);
-```
+The replacement is active only in CP/M mode. The standard `80h` command shows
+the complete replacement RAM map without an overlay.
 
-This redirects the external page from 5 to 4 while leaving SRAM address lines
-unchanged. Outside that overlay page the original translation is preserved,
-including normal video at F000-FFFF. No CP/M software change is required by this interface. However, the resulting
-0.7 image failed physical boot testing. Restore a known-booting 0.6 image and
-hold off banking tests while this regression is investigated. Static equations
-and successful fitting do not validate physical behavior. The 0.7 image is
-retained for investigation, not recommended for use.
+## Required board wiring
 
-The checker now evaluates the downstream video decode as well as CPLD selects;
-the former checker treated inactive motherboard selects as sufficient to isolate
-SRAM. Tests explicitly reject the revision 0.6 equation. The emulator's logical
-memory map assumes isolated devices and cannot predict electrical bus contention.
+- CPU connector J1 pin 26 is isolated from A15; that motherboard pin is RAMS2.
+- PROM U3 pin 14 supplies the real CPU A15 to CPLD pin 44.
+- Video-expansion connector J2 pin 26 connects to CPLD pin 29 and carries
+  RAMS2_EXP. The source retains the legacy output name RA15.
+- CPU A11/A12/A13/A14 connect to CPLD pins 28/12/16/27.
 
-The local Philips field-support manual, section 3.2.1 (page 3-14), describes
-the video board's independent 5000-5FFF decode. The RAMS2-low video condition
-also matches the established working F000-FFFF mapping on this revised board.
+## Build
 
-## Build and verify
-
-Windows, with WinCUPL installed at C:\WINCUPL:
+Windows with WinCUPL installed at `C:\WINCUPL`:
 
 ```bat
 cupl\build.bat cpm
+cupl\build.bat no-floppy
+cupl\build.bat stock
 ```
 
-This produces `cupl/p2000m-cpm-coboard.jed`. Set CUPL_ROOT if installed elsewhere.
-`build.sh` provides the corresponding Wine build on Linux.
+On Linux, `build.sh` runs the same compiler and fitter through Wine. Set
+`CUPL_ROOT` if WinCUPL is installed elsewhere.
+
+```sh
+cupl/build.sh cpm
+cupl/build.sh no-floppy
+cupl/build.sh stock
+```
+
+The repository intentionally includes the tested standard JEDEC because the
+compiler is proprietary. Intermediate compiler and fitter reports remain
+ignored. The no-floppy JEDEC should be added only after it has been compiled
+from the checked-in source and tested on hardware.
+
+## Verify
+
+The Python checker evaluates the CUPL equations, complete memory maps, SRAM
+bank allocation, control writes, reset behavior, and independent video decode.
+It is functional verification rather than a fitter or timing simulation.
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 cupl/verify.py
+PYTHONDONTWRITEBYTECODE=1 python3 cupl/verify.py --no-floppy
+PYTHONDONTWRITEBYTECODE=1 python3 cupl/verify.py --stock
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s cupl -p 'test_*.py'
 ```
 
-The checker evaluates the actual CUPL equations: mapping, RAMS2 output,
-address translation, every bank/control state, atomic writes and reset. It also rejects reintroduction of
-RAMS2 high in the CP/M video window. These are functional checks, not timing
-simulation. The original PROM fixture remains in literature/82s123_dump_mobo.bin.
-
-Optional stock-only CPLD sources remain available through `build.bat stock`
-and `build.bat stock-fast` (slow/fast slew). Both disable local SRAM, reproduce
-the PROM table, pass A12-A14 and output RAMS2 on expansion pin 26. They cannot
-switch to CP/M and hold SRAM A14-A16 low. They are not the firmware for the
-working CP/M setup.
+The stock checker compares its implementation with
+`literature/82s123_dump_mobo.bin`.
