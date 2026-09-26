@@ -4,12 +4,6 @@ This board adds the memory mapping and local RAM needed to run CP/M on a
 Philips P2000M. It sits between the CPU board and the video expansion board
 and replaces the motherboard's 82S123 address-decoder PROM.
 
-The tested, canonical KiCad design is directly in [`pcb`](pcb). Its fabrication
-files are in [`pcb/GERBERS`](pcb/GERBERS). The older board that closely follows
-the Senechal implementation is retained only as a historical reference in
-[`archive/senechal-pcb`](archive/senechal-pcb); it is not recommended for a new
-build.
-
 ## Features
 
 - An ATF1502AS CPLD recreates the stock P2000M decode after reset and switches
@@ -30,10 +24,6 @@ The normal CP/M map is:
 | `A000`-`DFFF` | Co-board SRAM, fixed bank 0 |
 | `E000`-`EFFF` | CP/M cartridge BIOS slice |
 | `F000`-`FFFF` | Video and attributes |
-
-The CUPL source is the source of truth for the implemented decode. Background
-and the consolidated memory-map explanation are in
-[`docs/memory-decoding.md`](docs/memory-decoding.md).
 
 ![Rendered top view of the P2000M CP/M co-board](images/cpm-board-pcb.png)
 
@@ -59,6 +49,10 @@ Program the CPLD with the tested
 source is [`cupl/p2000m-cpm-coboard.pld`](cupl/p2000m-cpm-coboard.pld).
 Programming and verification details are in [`cupl/README.md`](cupl/README.md).
 The CP/M cartridge and disk images are in [`software`](software).
+
+> [!NOTE]
+> The open-source [ATF150x Programmer](https://github.com/ifilot/atf150x-programmer)
+> can flash the CPLD without the comparatively expensive proprietary programmer.
 
 ## Systems without the floppy-controller board
 
