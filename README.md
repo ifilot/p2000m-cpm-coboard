@@ -74,6 +74,11 @@ It therefore exposes five optional banks rather than seven. This variant only
 replaces RAM in CP/M mode; it does not provide the stock-map expansion RAM at
 `A000`-`FFFF`. See [`cupl/README.md`](cupl/README.md) before using it.
 
+The compiled [`p2000m-cpm-coboard-no-floppy.jed`](cupl/p2000m-cpm-coboard-no-floppy.jed)
+is included because building it requires WinCUPL. It has passed source
+verification and ATF1502AS fitting, but still requires testing on physical
+hardware.
+
 ## Licence
 
 The canonical co-board hardware and associated CUPL source are released under

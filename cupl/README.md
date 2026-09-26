@@ -9,7 +9,7 @@ programming file is `p2000m-cpm-coboard.jed`.
 | Build | Purpose | Status |
 | --- | --- | --- |
 | `cpm` | Normal CP/M co-board with seven optional SRAM banks | Tested on hardware |
-| `no-floppy` | CP/M map with onboard replacement for the absent floppy-board RAM | Source-verified; requires compilation and hardware testing |
+| `no-floppy` | CP/M map with onboard replacement for the absent floppy-board RAM | Compiled and source-verified; hardware testing pending |
 | `stock` | Diagnostic reproduction of the factory 82S123 decoder | Reference/test implementation |
 
 The `no-floppy` image must only be used when the complete floppy-controller
@@ -112,10 +112,11 @@ cupl/build.sh no-floppy
 cupl/build.sh stock
 ```
 
-The repository intentionally includes the tested standard JEDEC because the
-compiler is proprietary. Intermediate compiler and fitter reports remain
-ignored. The no-floppy JEDEC should be added only after it has been compiled
-from the checked-in source and tested on hardware.
+The repository intentionally includes the standard and no-floppy JEDEC files
+because the compiler is proprietary. Intermediate compiler and fitter reports
+remain ignored. Both sources compile and fit successfully for the ATF1502AS
+with JTAG enabled and slow outputs. The no-floppy image has not yet been tested
+on physical hardware.
 
 ## Verify
 
